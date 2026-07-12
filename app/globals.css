@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+/* Tailwind v4 dark mode defaults to the `prefers-color-scheme` media query.
+   We want a manual toggle (residents on a hospital device with a fixed
+   system theme should still be able to pick dark mode for night shifts),
+   so this switches Tailwind's `dark:` variant to match a `.dark` class on
+   <html> instead, which next-themes (see components/ThemeProvider.tsx)
+   manages. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-rubik);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Styling for rendered TipTap documents (both the live editor in the admin
+   CMS and the read-only resident view use this -- see
+   components/blocks/RichTextBlock.tsx and components/editor/TipTapEditor.tsx).
+   Hand-written rather than @tailwindcss/typography since the content model
+   is deliberately small (no need for a general-purpose prose plugin). */
+.tiptap-content,
+.tiptap {
+  line-height: 1.7;
+}
+.tiptap-content h1, .tiptap h1 { font-size: 1.375rem; font-weight: 700; margin: 1rem 0 0.5rem; }
+.tiptap-content h2, .tiptap h2 { font-size: 1.2rem; font-weight: 700; margin: 1rem 0 0.5rem; }
+.tiptap-content h3, .tiptap h3 { font-size: 1.05rem; font-weight: 600; margin: 0.75rem 0 0.5rem; }
+.tiptap-content p, .tiptap p { margin: 0.5rem 0; }
+.tiptap-content ul, .tiptap ul { list-style: disc; padding-inline-start: 1.5rem; margin: 0.5rem 0; }
+.tiptap-content ol, .tiptap ol { list-style: decimal; padding-inline-start: 1.5rem; margin: 0.5rem 0; }
+.tiptap-content blockquote, .tiptap blockquote {
+  border-inline-start: 3px solid var(--color-neutral-300, #d4d4d4);
+  padding-inline-start: 0.75rem;
+  color: var(--color-neutral-500, #737373);
+  margin: 0.5rem 0;
+}
+.tiptap-content table, .tiptap table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.75rem 0;
+  font-size: 0.875rem;
+}
+.tiptap-content th, .tiptap th,
+.tiptap-content td, .tiptap td {
+  border: 1px solid var(--color-neutral-300, #d4d4d4);
+  padding: 0.4rem 0.6rem;
+  text-align: start;
+}
+.tiptap-content th, .tiptap th {
+  background: var(--color-neutral-100, #f5f5f5);
+  font-weight: 600;
+}
+.dark .tiptap-content th, .dark .tiptap th { background: var(--color-neutral-800, #262626); }
+.dark .tiptap-content blockquote, .dark .tiptap blockquote,
+.dark .tiptap-content th, .dark .tiptap-content td,
+.dark .tiptap th, .dark .tiptap td {
+  border-color: var(--color-neutral-700, #404040);
+}
+.tiptap-content:focus, .tiptap:focus { outline: none; }
