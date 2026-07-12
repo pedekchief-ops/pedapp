@@ -6,6 +6,7 @@ import { BlockRenderer } from "@/components/blocks/BlockRenderer";
 import type { PageWithBlocks } from "@/lib/supabase/types";
 
 type FetchStatus = "loading" | "ready" | "error";
+type LoadedPage = PageWithBlocks & { editorName: string | null };
 
 // A Client Component that fetches its content from /api/pages/[..]/[..]
 // (JSON) rather than being server-rendered. This is deliberate: it's what
@@ -15,19 +16,32 @@ type FetchStatus = "loading" | "ready" | "error";
 // to reliably replay offline.
 export default function PageView() {
   const params = useParams<{ sectionSlug: string; pageSlug: string }>();
-  const [page, setPage] = useState<(PageWithBlocks & { editorName: string | null }) | null>(null);
+  // Keying by the route params forces React to remount PageViewContent
+  // (and re-run its effect from a fresh "loading" state) whenever the
+  // resident navigates to a different page, without needing to reset state
+  // imperatively inside the effect itself.
+  return <PageViewContent key={`${params.sectionSlug}/${params.pageSlug}`} {...params} />;
+}
+
+function PageViewContent({
+  sectionSlug,
+  pageSlug,
+}: {
+  sectionSlug: string;
+  pageSlug: string;
+}) {
+  const [page, setPage] = useState<LoadedPage | null>(null);
   const [status, setStatus] = useState<FetchStatus>("loading");
 
   useEffect(() => {
     let cancelled = false;
-    setStatus("loading");
 
-    fetch(`/api/pages/${params.sectionSlug}/${params.pageSlug}`)
+    fetch(`/api/pages/${sectionSlug}/${pageSlug}`)
       .then((res) => {
         if (!res.ok) throw new Error("failed to load page");
         return res.json();
       })
-      .then((data) => {
+      .then((data: LoadedPage) => {
         if (!cancelled) {
           setPage(data);
           setStatus("ready");
@@ -40,7 +54,7 @@ export default function PageView() {
     return () => {
       cancelled = true;
     };
-  }, [params.sectionSlug, params.pageSlug]);
+  }, [sectionSlug, pageSlug]);
 
   if (status === "loading") {
     return <p className="p-4 text-sm text-neutral-500 dark:text-neutral-400">טוען...</p>;

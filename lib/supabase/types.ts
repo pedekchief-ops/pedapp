@@ -114,3 +114,16 @@ export interface BlockNode extends Block {
 export interface PageWithBlocks extends Page {
   blocks: BlockNode[];
 }
+
+// Shape the admin block editor works with locally before publishing --
+// unlike BlockNode there's no id/page_id/timestamps yet, since the whole
+// tree is replaced wholesale on publish (see lib/actions/admin.ts). The
+// editor assigns each draft a throwaway `clientId` purely for React keys /
+// local reordering; it never reaches the server.
+export interface BlockDraft {
+  clientId: string;
+  type: BlockType;
+  content: BlockContent;
+  tab_key?: string | null;
+  children: BlockDraft[];
+}
