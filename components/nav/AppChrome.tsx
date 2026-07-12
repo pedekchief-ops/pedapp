@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useTheme } from "next-themes";
 import { Menu, X, Moon, Sun, LogOut, ShieldCheck, Search, Home } from "lucide-react";
 import { signOut } from "@/lib/actions/auth";
+import { OfflinePrefetcher } from "@/components/OfflinePrefetcher";
+import { PushSubscribeToggle } from "@/components/PushSubscribeToggle";
 import type { Profile } from "@/lib/supabase/types";
 
 // The persistent chrome around every resident-facing page: a top bar with a
@@ -79,6 +81,7 @@ export function AppChrome({
             )}
 
             <ThemeToggle />
+            <PushSubscribeToggle />
 
             <form action={signOut} className="mt-auto pt-2">
               <button
@@ -92,6 +95,8 @@ export function AppChrome({
           </div>
         </div>
       )}
+
+      <OfflinePrefetcher />
     </div>
   );
 }
