@@ -29,7 +29,7 @@ export default async function AdminSectionPage({
         <form action={createPageForSection}>
           <button
             type="submit"
-            className="flex items-center gap-1 rounded-lg bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-700 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+            className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
             <Plus size={16} />
             עמוד חדש

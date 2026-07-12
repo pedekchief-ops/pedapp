@@ -46,6 +46,40 @@ export async function toggleSectionOfflineCritical(sectionId: string, value: boo
   revalidatePath("/admin");
 }
 
+// Updates the single app_settings row (see
+// supabase/migrations/0005_app_settings.sql). `logoStoragePath` is already
+// uploaded to Storage by the time this runs (components/admin/SettingsForm.tsx
+// uploads directly from the browser, same pattern as FileUploader) -- this
+// action just persists the resulting path plus the color/theme fields.
+// revalidatePath(..., "layout") is what's needed here specifically: the
+// root layout (app/layout.tsx) reads these settings on every request, so
+// every route under it must be invalidated, not just one path.
+export async function updateAppSettings(params: {
+  logoStoragePath: string | null;
+  primaryColor: string;
+  defaultTheme: "light" | "dark" | "system";
+}) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("not authenticated");
+
+  const { error } = await supabase
+    .from("app_settings")
+    .update({
+      logo_storage_path: params.logoStoragePath,
+      primary_color: params.primaryColor,
+      default_theme: params.defaultTheme,
+      updated_by: user.id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", true);
+  if (error) throw error;
+
+  revalidatePath("/", "layout");
+}
+
 // Flattens the editor's local block-draft tree into rows ready to insert,
 // assigning every block a fresh id (the whole tree is replaced wholesale on
 // each publish -- see the file header of supabase/migrations/0001_init_schema.sql

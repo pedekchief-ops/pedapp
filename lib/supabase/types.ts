@@ -13,6 +13,18 @@ export interface Profile {
   created_at: string;
 }
 
+// Mirrors supabase/migrations/0005_app_settings.sql -- the single row
+// controlling app-wide branding (logo, primary color, default theme),
+// editable at /admin/settings.
+export interface AppSettings {
+  id: true;
+  logo_storage_path: string | null;
+  primary_color: string;
+  default_theme: "light" | "dark" | "system";
+  updated_by: string | null;
+  updated_at: string;
+}
+
 export interface Section {
   id: string;
   slug: string;

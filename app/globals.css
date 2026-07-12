@@ -11,6 +11,11 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Overridden per-request from the app_settings row (see
+     app/layout.tsx and lib/data.ts getAppSettings) -- these are just
+     fallbacks for the brief moment before that inline style applies. */
+  --brand-primary: #0d9488;
+  --brand-primary-foreground: #ffffff;
 }
 
 .dark {
@@ -21,6 +26,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  /* Exposes bg-primary / text-primary / border-primary / ring-primary
+     Tailwind utilities, driven by the admin-configurable brand color. */
+  --color-primary: var(--brand-primary);
+  --color-primary-foreground: var(--brand-primary-foreground);
   --font-sans: var(--font-rubik);
 }
 

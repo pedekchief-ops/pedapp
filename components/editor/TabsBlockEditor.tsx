@@ -49,9 +49,7 @@ export function TabsBlockEditor({
           <div
             key={tab.key}
             className={`flex items-center gap-1 rounded-lg border px-2 py-1 ${
-              activeKey === tab.key
-                ? "border-neutral-900 dark:border-neutral-100"
-                : "border-neutral-200 dark:border-neutral-800"
+              activeKey === tab.key ? "border-primary" : "border-neutral-200 dark:border-neutral-800"
             }`}
           >
             <input

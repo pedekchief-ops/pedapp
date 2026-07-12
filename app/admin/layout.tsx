@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Palette } from "lucide-react";
 import { signOut } from "@/lib/actions/auth";
 
 // Deliberately minimal chrome, separate from AppChrome (the resident-facing
 // shell) -- the admin CMS is a distinct tool for a different task, not
-// another "page" of the resident app. Access is enforced by middleware.ts
-// (see lib/supabase/middleware.ts), which redirects non-admins before this
+// another "page" of the resident app. Access is enforced by proxy.ts (see
+// lib/supabase/middleware.ts), which redirects non-admins before this
 // layout ever renders.
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -23,14 +23,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             ניהול תוכן
           </span>
         </div>
-        <form action={signOut}>
-          <button
-            type="submit"
-            className="text-sm text-red-600 hover:underline dark:text-red-400"
+        <div className="flex items-center gap-4">
+          <Link
+            href="/admin/settings"
+            className="flex items-center gap-1 text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-neutral-50"
           >
-            התנתקות
-          </button>
-        </form>
+            <Palette size={16} />
+            עיצוב
+          </Link>
+          <form action={signOut}>
+            <button type="submit" className="text-sm text-red-600 hover:underline dark:text-red-400">
+              התנתקות
+            </button>
+          </form>
+        </div>
       </header>
       <main className="mx-auto max-w-3xl p-4">{children}</main>
     </div>

@@ -1,6 +1,30 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildBlockTree } from "@/lib/blocks";
-import type { Block, Page, PageWithBlocks, Profile, Section } from "@/lib/supabase/types";
+import type {
+  AppSettings,
+  Block,
+  Page,
+  PageWithBlocks,
+  Profile,
+  Section,
+} from "@/lib/supabase/types";
+
+// Falls back to sensible defaults if the settings row can't be read (e.g.
+// migrations not yet applied) so a misconfigured DB never breaks the
+// whole app's layout.
+const DEFAULT_APP_SETTINGS: AppSettings = {
+  id: true,
+  logo_storage_path: null,
+  primary_color: "#0d9488",
+  default_theme: "system",
+  updated_by: null,
+  updated_at: new Date(0).toISOString(),
+};
+
+export async function getAppSettings(supabase: SupabaseClient): Promise<AppSettings> {
+  const { data } = await supabase.from("app_settings").select("*").eq("id", true).single();
+  return data ?? DEFAULT_APP_SETTINGS;
+}
 
 // Shared read helpers used by both the resident-facing pages and the admin
 // CMS. Each takes a Supabase client instance rather than creating its own,

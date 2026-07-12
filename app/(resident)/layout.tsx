@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { getProfile } from "@/lib/data";
+import { getAppSettings, getProfile } from "@/lib/data";
+import { getPublicUrl } from "@/lib/supabase/storage";
 import { AppChrome } from "@/components/nav/AppChrome";
 
 // Shared shell for every resident-facing route (home grid, section lists,
@@ -17,5 +18,14 @@ export default async function ResidentLayout({
   } = await supabase.auth.getUser();
   const profile = user ? await getProfile(supabase, user.id) : null;
 
-  return <AppChrome profile={profile}>{children}</AppChrome>;
+  const settings = await getAppSettings(supabase);
+  const logoUrl = settings.logo_storage_path
+    ? getPublicUrl("images", settings.logo_storage_path)
+    : null;
+
+  return (
+    <AppChrome profile={profile} logoUrl={logoUrl}>
+      {children}
+    </AppChrome>
+  );
 }

@@ -16,9 +16,11 @@ import type { Profile } from "@/lib/supabase/types";
 // without prop-drilling through a context.
 export function AppChrome({
   profile,
+  logoUrl,
   children,
 }: {
   profile: Profile | null;
+  logoUrl: string | null;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -34,7 +36,13 @@ export function AppChrome({
         >
           <Menu size={22} />
         </button>
-        <Link href="/" className="text-base font-semibold text-neutral-900 dark:text-neutral-50">
+        <Link href="/" className="flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-neutral-50">
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="" className="h-7 w-7 rounded object-contain" />
+          ) : (
+            <span className="h-2 w-2 rounded-full bg-primary" aria-hidden />
+          )}
           מדריך התמחות בילדים
         </Link>
       </header>

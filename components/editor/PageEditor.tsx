@@ -92,7 +92,7 @@ export function PageEditor({
           type="button"
           disabled={pending}
           onClick={handlePublish}
-          className="flex items-center gap-2 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
           <Save size={16} />
           {pending ? "מפרסם..." : "פרסום"}
