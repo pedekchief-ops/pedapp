@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getAppSettings, getProfile } from "@/lib/data";
+import { getAppSettings, getProfile, getSections } from "@/lib/data";
 import { getPublicUrl } from "@/lib/supabase/storage";
 import { AppChrome } from "@/components/nav/AppChrome";
 
@@ -22,9 +22,15 @@ export default async function ResidentLayout({
   const logoUrl = settings.logo_storage_path
     ? getPublicUrl("images", settings.logo_storage_path)
     : null;
+  const sections = await getSections(supabase);
 
   return (
-    <AppChrome profile={profile} logoUrl={logoUrl} isRealAccount={!!user && !user.is_anonymous}>
+    <AppChrome
+      profile={profile}
+      logoUrl={logoUrl}
+      isRealAccount={!!user && !user.is_anonymous}
+      sections={sections}
+    >
       {children}
     </AppChrome>
   );

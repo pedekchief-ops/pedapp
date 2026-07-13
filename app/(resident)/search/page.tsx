@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { Search as SearchIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { searchContent } from "@/lib/search";
 
-interface SearchResult {
-  slug: string;
-  title_he: string;
-  sections: { slug: string; name_he: string } | null;
-}
-
+// A plain, deep-linkable /search?q=... page (global scope) -- the primary
+// search experience is SearchOverlay (opened from AppChrome's header icon
+// on every page), which additionally supports category/current-page
+// scoping. This page exists so a search URL can still be shared/bookmarked.
 export default async function SearchPage({
   searchParams,
 }: {
@@ -17,19 +16,7 @@ export default async function SearchPage({
   const query = q?.trim() ?? "";
   const supabase = await createClient();
 
-  let results: SearchResult[] = [];
-  if (query.length > 0) {
-    // Basic Postgres ILIKE search across page titles. Good enough for a
-    // reference app of this size; worth swapping for full-text search or a
-    // dedicated search service only if content volume or match quality
-    // ever becomes a real complaint.
-    const { data } = await supabase
-      .from("pages")
-      .select("slug, title_he, sections(slug, name_he)")
-      .or(`title_he.ilike.%${query}%,title_en.ilike.%${query}%`)
-      .limit(30);
-    results = (data as unknown as SearchResult[]) ?? [];
-  }
+  const results = query.length > 0 ? await searchContent(supabase, { query }) : [];
 
   return (
     <div className="mx-auto max-w-2xl p-4">
@@ -47,7 +34,7 @@ export default async function SearchPage({
 
       {query.length === 0 && (
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          הקלידו לפחות תו אחד כדי לחפש.
+          הקלידו לפחות שני תווים כדי לחפש.
         </p>
       )}
 
@@ -58,17 +45,17 @@ export default async function SearchPage({
       )}
 
       <ul className="flex flex-col gap-2">
-        {results.map((page) => (
-          <li key={`${page.sections?.slug}-${page.slug}`}>
+        {results.map((hit) => (
+          <li key={`${hit.sectionSlug}-${hit.pageSlug}`}>
             <Link
-              href={`/${page.sections?.slug}/${page.slug}`}
+              href={`/${hit.sectionSlug}/${hit.pageSlug}`}
               className="block rounded-xl border border-neutral-200 px-4 py-3 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
             >
               <span className="block text-sm font-medium text-neutral-900 dark:text-neutral-50">
-                {page.title_he}
+                {hit.pageTitleHe}
               </span>
               <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                {page.sections?.name_he}
+                {hit.sectionNameHe}
               </span>
             </Link>
           </li>

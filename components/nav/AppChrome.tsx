@@ -7,25 +7,30 @@ import { Menu, X, Moon, Sun, LogOut, ShieldCheck, Search, Home } from "lucide-re
 import { signOut } from "@/lib/actions/auth";
 import { OfflinePrefetcher } from "@/components/OfflinePrefetcher";
 import { PushSubscribeToggle } from "@/components/PushSubscribeToggle";
-import type { Profile } from "@/lib/supabase/types";
+import { SearchOverlay } from "@/components/search/SearchOverlay";
+import type { Profile, Section } from "@/lib/supabase/types";
 
 // The persistent chrome around every resident-facing page: a top bar with a
-// hamburger button, and the slide-in drawer it opens (home link, search,
+// hamburger button and a search icon (opens SearchOverlay from anywhere in
+// the app), plus the slide-in drawer the hamburger opens (home link,
 // dark-mode toggle, admin link for admins, sign out). Kept as one client
-// component so the open/close state and the header button can share state
+// component so the open/close state and the header buttons can share state
 // without prop-drilling through a context.
 export function AppChrome({
   profile,
   logoUrl,
   isRealAccount,
+  sections,
   children,
 }: {
   profile: Profile | null;
   logoUrl: string | null;
   isRealAccount: boolean;
+  sections: Section[];
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -38,7 +43,7 @@ export function AppChrome({
         >
           <Menu size={22} />
         </button>
-        <Link href="/" className="flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-neutral-50">
+        <Link href="/" className="flex flex-1 items-center gap-2 text-base font-semibold text-neutral-900 dark:text-neutral-50">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={logoUrl} alt="" className="h-7 w-7 rounded object-contain" />
@@ -47,6 +52,14 @@ export function AppChrome({
           )}
           מדריך התמחות בילדים
         </Link>
+        <button
+          type="button"
+          aria-label="חיפוש"
+          onClick={() => setSearchOpen(true)}
+          className="rounded-lg p-2 text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
+        >
+          <Search size={20} />
+        </button>
       </header>
 
       <main className="flex-1">{children}</main>
@@ -79,7 +92,6 @@ export function AppChrome({
             </div>
 
             <DrawerLink href="/" icon={<Home size={18} />} label="בית" onNavigate={() => setOpen(false)} />
-            <DrawerLink href="/search" icon={<Search size={18} />} label="חיפוש" onNavigate={() => setOpen(false)} />
 
             {profile?.role === "admin" && (
               <DrawerLink
@@ -121,6 +133,7 @@ export function AppChrome({
         </div>
       )}
 
+      {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} sections={sections} />}
       <OfflinePrefetcher />
     </div>
   );

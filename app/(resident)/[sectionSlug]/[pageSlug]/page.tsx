@@ -45,6 +45,17 @@ function PageViewContent({
         if (!cancelled) {
           setPage(data);
           setStatus("ready");
+          // Content mounts asynchronously (see the file header comment),
+          // so the browser's native "scroll to #fragment on load" never
+          // fires for a search result deep-link -- do it manually once the
+          // matching block actually exists in the DOM.
+          if (window.location.hash) {
+            requestAnimationFrame(() => {
+              document
+                .getElementById(window.location.hash.slice(1))
+                ?.scrollIntoView({ behavior: "smooth", block: "center" });
+            });
+          }
         }
       })
       .catch(() => {
@@ -79,7 +90,11 @@ function PageViewContent({
       </p>
       <div className="flex flex-col gap-6">
         {page.blocks.map((block) => (
-          <BlockRenderer key={block.id} block={block} />
+          // id target for search-result deep links (#block-<id>), see the
+          // scrollIntoView call above and components/search/SearchOverlay.tsx.
+          <div key={block.id} id={`block-${block.id}`}>
+            <BlockRenderer block={block} />
+          </div>
         ))}
       </div>
     </article>
