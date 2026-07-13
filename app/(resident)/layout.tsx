@@ -24,7 +24,7 @@ export default async function ResidentLayout({
     : null;
 
   return (
-    <AppChrome profile={profile} logoUrl={logoUrl}>
+    <AppChrome profile={profile} logoUrl={logoUrl} isRealAccount={!!user && !user.is_anonymous}>
       {children}
     </AppChrome>
   );

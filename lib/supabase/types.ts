@@ -4,7 +4,13 @@
 
 export type UserRole = "admin" | "resident";
 
-export type BlockType = "rich_text" | "pdf" | "image" | "tabs_container";
+export type BlockType =
+  | "rich_text"
+  | "pdf"
+  | "image"
+  | "tabs_container"
+  | "link_button"
+  | "data_table";
 
 export interface Profile {
   id: string;
@@ -75,11 +81,56 @@ export interface TabsContainerContent {
   tabs: { key: string; label_he: string; label_en?: string }[];
 }
 
+// A button that opens an external site in a new tab -- see
+// components/blocks/LinkButtonBlock.tsx / components/editor/BlockEditor.tsx.
+export interface LinkButtonContent {
+  label_he: string;
+  label_en?: string;
+  url: string;
+}
+
+// A configurable table: admin-defined columns, rows grouped into
+// categories and (optionally) subcategories. Introduced for the
+// medications table but usable on any page -- see
+// components/blocks/DataTableBlock.tsx / components/editor/DataTableEditor.tsx.
+export interface DataTableColumn {
+  key: string;
+  label_he: string;
+  label_en?: string;
+}
+
+export interface DataTableRow {
+  key: string;
+  values: Record<string, string>; // column key -> cell text
+}
+
+export interface DataTableSubcategory {
+  key: string;
+  name_he: string;
+  name_en?: string;
+  rows: DataTableRow[];
+}
+
+export interface DataTableCategory {
+  key: string;
+  name_he: string;
+  name_en?: string;
+  rows: DataTableRow[]; // rows directly under the category, outside any subcategory
+  subcategories: DataTableSubcategory[];
+}
+
+export interface DataTableContent {
+  columns: DataTableColumn[];
+  categories: DataTableCategory[];
+}
+
 export type BlockContent =
   | RichTextContent
   | ImageContent
   | PdfContent
-  | TabsContainerContent;
+  | TabsContainerContent
+  | LinkButtonContent
+  | DataTableContent;
 
 export interface Block {
   id: string;

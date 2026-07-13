@@ -3,9 +3,12 @@
 import { TipTapEditor } from "./TipTapEditor";
 import { FileUploader } from "./FileUploader";
 import { TabsBlockEditor } from "./TabsBlockEditor";
+import { DataTableEditor } from "./DataTableEditor";
 import type {
   BlockDraft,
+  DataTableContent,
   ImageContent,
+  LinkButtonContent,
   PdfContent,
   RichTextContent,
   TabsContainerContent,
@@ -78,6 +81,38 @@ export function BlockEditor({
           className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
         />
       </div>
+    );
+  }
+
+  if (block.type === "link_button") {
+    const content = block.content as LinkButtonContent;
+    return (
+      <div className="flex flex-col gap-2">
+        <input
+          type="text"
+          placeholder="טקסט הכפתור"
+          value={content.label_he}
+          onChange={(e) => onChange({ ...block, content: { ...content, label_he: e.target.value } })}
+          className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+        />
+        <input
+          type="url"
+          placeholder="https://..."
+          value={content.url}
+          onChange={(e) => onChange({ ...block, content: { ...content, url: e.target.value } })}
+          dir="ltr"
+          className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+        />
+      </div>
+    );
+  }
+
+  if (block.type === "data_table") {
+    return (
+      <DataTableEditor
+        content={block.content as DataTableContent}
+        onChange={(content) => onChange({ ...block, content })}
+      />
     );
   }
 

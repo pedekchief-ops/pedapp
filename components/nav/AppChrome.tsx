@@ -17,10 +17,12 @@ import type { Profile } from "@/lib/supabase/types";
 export function AppChrome({
   profile,
   logoUrl,
+  isRealAccount,
   children,
 }: {
   profile: Profile | null;
   logoUrl: string | null;
+  isRealAccount: boolean;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -64,7 +66,7 @@ export function AppChrome({
           <div className="absolute inset-y-0 start-0 flex w-72 max-w-[80vw] flex-col gap-1 bg-white p-4 shadow-xl dark:bg-neutral-900">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
-                {profile?.full_name || "תפריט"}
+                {isRealAccount ? profile?.full_name || "תפריט" : "תפריט"}
               </span>
               <button
                 type="button"
@@ -91,15 +93,30 @@ export function AppChrome({
             <ThemeToggle />
             <PushSubscribeToggle />
 
-            <form action={signOut} className="mt-auto pt-2">
-              <button
-                type="submit"
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
-              >
-                <LogOut size={18} />
-                התנתקות
-              </button>
-            </form>
+            {/* Sign-out only makes sense for a real (non-anonymous)
+                account -- residents browsing without one never "signed
+                in" to anything, see isRealAccount in
+                app/(resident)/layout.tsx. */}
+            {isRealAccount ? (
+              <form action={signOut} className="mt-auto pt-2">
+                <button
+                  type="submit"
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                >
+                  <LogOut size={18} />
+                  התנתקות
+                </button>
+              </form>
+            ) : (
+              <div className="mt-auto pt-2">
+                <DrawerLink
+                  href="/login"
+                  icon={<ShieldCheck size={18} />}
+                  label="כניסת צוות ניהול"
+                  onNavigate={() => setOpen(false)}
+                />
+              </div>
+            )}
           </div>
         </div>
       )}

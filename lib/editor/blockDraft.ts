@@ -24,6 +24,17 @@ export function createEmptyBlock(type: BlockType, tabKey: string | null = null):
         type,
         content: { tabs: [{ key: crypto.randomUUID(), label_he: "טאב 1" }] },
       };
+    case "link_button":
+      return { ...base, type, content: { label_he: "", url: "" } };
+    case "data_table":
+      return {
+        ...base,
+        type,
+        content: {
+          columns: [{ key: crypto.randomUUID(), label_he: "עמודה 1" }],
+          categories: [{ key: crypto.randomUUID(), name_he: "קטגוריה 1", rows: [], subcategories: [] }],
+        },
+      };
   }
 }
 

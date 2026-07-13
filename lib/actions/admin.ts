@@ -36,6 +36,54 @@ export async function deletePage(pageId: string, sectionSlug: string) {
   revalidatePath(`/admin/${sectionSlug}`);
 }
 
+export async function bulkDeletePages(pageIds: string[], sectionSlug: string) {
+  if (pageIds.length === 0) return;
+  const supabase = await createClient();
+  const { error } = await supabase.from("pages").delete().in("id", pageIds);
+  if (error) throw error;
+  revalidatePath(`/admin/${sectionSlug}`);
+}
+
+// Moves a batch of pages to a different section. Pages are unique on
+// (section_id, slug) (see 0001_init_schema.sql), so a page whose slug
+// already exists in the destination gets a short suffix appended rather
+// than failing the whole batch over one collision.
+export async function movePagesToSection(
+  pageIds: string[],
+  targetSectionId: string,
+  currentSectionSlug: string,
+  targetSectionSlug: string
+) {
+  if (pageIds.length === 0) return;
+  const supabase = await createClient();
+
+  const { data: existing, error: fetchError } = await supabase
+    .from("pages")
+    .select("id, slug")
+    .in("id", pageIds);
+  if (fetchError) throw fetchError;
+
+  const { data: destinationPages, error: destError } = await supabase
+    .from("pages")
+    .select("slug")
+    .eq("section_id", targetSectionId);
+  if (destError) throw destError;
+  const takenSlugs = new Set((destinationPages ?? []).map((p) => p.slug));
+
+  for (const page of existing ?? []) {
+    const slug = takenSlugs.has(page.slug) ? `${page.slug}-${Date.now().toString(36)}` : page.slug;
+    takenSlugs.add(slug);
+    const { error } = await supabase
+      .from("pages")
+      .update({ section_id: targetSectionId, slug })
+      .eq("id", page.id);
+    if (error) throw error;
+  }
+
+  revalidatePath(`/admin/${currentSectionSlug}`);
+  revalidatePath(`/admin/${targetSectionSlug}`);
+}
+
 export async function toggleSectionOfflineCritical(sectionId: string, value: boolean) {
   const supabase = await createClient();
   const { error } = await supabase

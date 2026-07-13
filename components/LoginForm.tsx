@@ -53,6 +53,17 @@ function LoginFormInner({ logoUrl }: { logoUrl: string | null }) {
       return;
     }
 
+    // Every visitor already has a silent anonymous session (see
+    // lib/supabase/middleware.ts). Sign out of it first so signUp always
+    // creates a clean, standalone account rather than potentially linking
+    // onto the anonymous one.
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser();
+    if (currentUser?.is_anonymous) {
+      await supabase.auth.signOut();
+    }
+
     // Sign-up: new accounts always land as the 'resident' role (see the
     // handle_new_user trigger in supabase/migrations/0001_init_schema.sql).
     // Promoting a resident to admin is a deliberate manual step, not
@@ -98,11 +109,13 @@ function LoginFormInner({ logoUrl }: { logoUrl: string | null }) {
             <img src={logoUrl} alt="" className="h-8 w-8 rounded object-contain" />
           )}
           <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">
-            מדריך התמחות בילדים
+            כניסת צוות ניהול
           </h1>
         </div>
         <p className="mb-6 text-sm text-neutral-500 dark:text-neutral-400">
-          {mode === "signin" ? "התחברות למערכת" : "יצירת חשבון חדש"}
+          {mode === "signin"
+            ? "האפליקציה עצמה פתוחה לכולם ללא התחברות -- זה רק לניהול תוכן"
+            : "יצירת חשבון חדש (יתחיל כמשתמש רגיל; הפיכה למנהל היא פעולה ידנית)"}
         </p>
 
         <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-3">

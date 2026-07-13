@@ -3,7 +3,9 @@
 import dynamic from "next/dynamic";
 import type {
   BlockNode,
+  DataTableContent,
   ImageContent,
+  LinkButtonContent,
   PdfContent,
   RichTextContent,
   TabsContainerContent,
@@ -11,6 +13,8 @@ import type {
 import { RichTextBlock } from "./RichTextBlock";
 import { ImageBlock } from "./ImageBlock";
 import { TabsBlock } from "./TabsBlock";
+import { LinkButtonBlock } from "./LinkButtonBlock";
+import { DataTableBlock } from "./DataTableBlock";
 
 // pdfjs-dist (used inside PdfBlock) assumes a browser environment and
 // crashes ("Object.defineProperty called on non-object") if its module
@@ -39,6 +43,10 @@ export function BlockRenderer({ block }: { block: BlockNode }) {
           childBlocks={block.children}
         />
       );
+    case "link_button":
+      return <LinkButtonBlock content={block.content as LinkButtonContent} />;
+    case "data_table":
+      return <DataTableBlock content={block.content as DataTableContent} />;
     default:
       return null;
   }

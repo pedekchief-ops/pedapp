@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Plus, Pencil } from "lucide-react";
+import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getPagesForSection, getSectionBySlug } from "@/lib/data";
+import { getPagesForSection, getSectionBySlug, getSections } from "@/lib/data";
 import { createPage } from "@/lib/actions/admin";
-import { DeletePageButton } from "@/components/admin/DeletePageButton";
+import { PagesListWithSelection } from "@/components/admin/PagesListWithSelection";
 
 export default async function AdminSectionPage({
   params,
@@ -17,7 +16,10 @@ export default async function AdminSectionPage({
   const section = await getSectionBySlug(supabase, sectionSlug);
   if (!section) notFound();
 
-  const pages = await getPagesForSection(supabase, section.id);
+  const [pages, allSections] = await Promise.all([
+    getPagesForSection(supabase, section.id),
+    getSections(supabase),
+  ]);
   const createPageForSection = createPage.bind(null, section.id, section.slug);
 
   return (
@@ -37,27 +39,11 @@ export default async function AdminSectionPage({
         </form>
       </div>
 
-      {pages.length === 0 ? (
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">אין עדיין עמודים.</p>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {pages.map((page) => (
-            <li
-              key={page.id}
-              className="flex items-center justify-between rounded-xl border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900"
-            >
-              <Link
-                href={`/admin/${section.slug}/${page.slug}/edit`}
-                className="flex flex-1 items-center gap-2 text-sm font-medium text-neutral-900 dark:text-neutral-50"
-              >
-                <Pencil size={14} className="text-neutral-400" />
-                {page.title_he}
-              </Link>
-              <DeletePageButton pageId={page.id} sectionSlug={section.slug} pageTitle={page.title_he} />
-            </li>
-          ))}
-        </ul>
-      )}
+      <PagesListWithSelection
+        pages={pages}
+        section={section}
+        otherSections={allSections.filter((s) => s.id !== section.id)}
+      />
     </div>
   );
 }

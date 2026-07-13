@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
-import { ChevronRight, ChevronLeft } from "lucide-react";
+import { ChevronRight, ChevronLeft, Download } from "lucide-react";
 import { getPublicUrl } from "@/lib/supabase/storage";
+import { downloadFile } from "@/lib/download";
 import type { PdfContent } from "@/lib/supabase/types";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -17,11 +18,16 @@ pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 // the same way inside the installed PWA and offline once the file is cached.
 export function PdfBlock({ content }: { content: PdfContent }) {
   const url = getPublicUrl("pdfs", content.storage_path);
+  // Storage paths are "<uuid>-<original filename>" (see
+  // components/editor/FileUploader.tsx) -- strip the uuid prefix back off
+  // for a sensible downloaded filename.
+  const filename = content.storage_path.split("-").slice(1).join("-") || "document.pdf";
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState<number>(0);
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -32,11 +38,27 @@ export function PdfBlock({ content }: { content: PdfContent }) {
 
   return (
     <div className="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800">
-      {content.title && (
-        <div className="border-b border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 dark:border-neutral-800 dark:text-neutral-200">
-          {content.title}
-        </div>
-      )}
+      <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-2 dark:border-neutral-800">
+        <span className="truncate text-sm font-medium text-neutral-700 dark:text-neutral-200">
+          {content.title || filename}
+        </span>
+        <button
+          type="button"
+          aria-label="הורדת הקובץ"
+          disabled={downloading}
+          onClick={async () => {
+            setDownloading(true);
+            try {
+              await downloadFile(url, filename);
+            } finally {
+              setDownloading(false);
+            }
+          }}
+          className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 disabled:opacity-50 dark:text-neutral-400 dark:hover:bg-neutral-800"
+        >
+          <Download size={16} />
+        </button>
+      </div>
       <div ref={containerRef} className="flex justify-center bg-neutral-50 p-2 dark:bg-neutral-950">
         {error ? (
           <p className="p-4 text-sm text-red-600 dark:text-red-400">{error}</p>

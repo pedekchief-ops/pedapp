@@ -1,14 +1,23 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// Runs on every matched request (see middleware.ts matcher). Does two jobs:
+// Runs on every matched request (see proxy.ts's matcher). Does two jobs:
 //
 // 1. Refreshes the Supabase auth session cookies on each request. Supabase
 //    sessions expire; without this, a page load after expiry would silently
 //    keep stale cookies and auth calls would start failing.
-// 2. Gates access: the whole app requires login except /login itself, and
-//    /admin additionally requires the 'admin' role (checked against the
-//    `profiles` table, not just "is logged in").
+// 2. Gates access:
+//    - /admin requires a real, non-anonymous signed-in admin.
+//    - Everything else (the resident-facing app) is open to anyone with the
+//      link, no account needed. We still give first-time visitors a
+//      lightweight anonymous Supabase session (rather than no session at
+//      all) purely so RLS policies and per-user features that key off
+//      auth.uid() -- push notification subscriptions, "updated by" audit
+//      fields, etc. -- keep working unchanged. This requires Anonymous
+//      Sign-ins to be enabled in the Supabase dashboard (Authentication ->
+//      Sign In / Providers); if it isn't, signInAnonymously() below fails
+//      and we simply let the request through anyway rather than block the
+//      whole app on that.
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -43,15 +52,16 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isLoginPage = pathname.startsWith("/login");
+  const isAdminPath = pathname.startsWith("/admin");
 
-  if (!user && !isLoginPage) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("redirectTo", pathname);
-    return NextResponse.redirect(url);
-  }
+  if (isAdminPath) {
+    if (!user || user.is_anonymous) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("redirectTo", pathname);
+      return NextResponse.redirect(url);
+    }
 
-  if (user && pathname.startsWith("/admin")) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
@@ -63,9 +73,26 @@ export async function updateSession(request: NextRequest) {
       url.pathname = "/";
       return NextResponse.redirect(url);
     }
+
+    return supabaseResponse;
   }
 
-  if (user && isLoginPage) {
+  // Resident-facing routes: establish an anonymous session for brand-new
+  // visitors so the rest of the app has a consistent auth.uid() to work
+  // with. Failures here (e.g. the dashboard toggle isn't on yet) are
+  // swallowed -- the app should degrade, not hard-fail, since RLS itself
+  // is the real gate on what an unauthenticated request can read.
+  if (!user && !isLoginPage) {
+    const { error } = await supabase.auth.signInAnonymously();
+    if (error) {
+      return supabaseResponse;
+    }
+  }
+
+  // A real (non-anonymous) admin who's already signed in gets sent home
+  // instead of seeing the login form again. Anonymous residents are left
+  // alone so they can still reach /login to create a real admin account.
+  if (user && !user.is_anonymous && isLoginPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);

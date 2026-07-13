@@ -1,9 +1,20 @@
 "use client";
 
-import { ArrowUp, ArrowDown, Trash2, Type, Image as ImageIcon, FileText, Columns } from "lucide-react";
+import {
+  ArrowUp,
+  ArrowDown,
+  Trash2,
+  Type,
+  Image as ImageIcon,
+  FileText,
+  Columns,
+  Link as LinkIcon,
+  Table,
+} from "lucide-react";
 import { createEmptyBlock } from "@/lib/editor/blockDraft";
 import type { BlockDraft, BlockType } from "@/lib/supabase/types";
 import { BlockEditor } from "./BlockEditor";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
 
 // Renders an ordered, editable list of blocks with add/reorder/delete
 // controls. Used both for a page's top-level blocks and, recursively, for
@@ -19,13 +30,22 @@ export function BlockList({
   onChange: (blocks: BlockDraft[]) => void;
   tabKey?: string | null;
 }) {
+  const { confirm, dialog } = useConfirmDialog();
+
   function updateAt(index: number, block: BlockDraft) {
     const next = blocks.slice();
     next[index] = block;
     onChange(next);
   }
 
-  function removeAt(index: number) {
+  async function removeAt(index: number) {
+    const ok = await confirm({
+      title: "למחוק את הבלוק?",
+      description: "התוכן שבתוכו יימחק גם הוא. השינוי ייכנס לתוקף רק לאחר לחיצה על פרסום.",
+      confirmLabel: "מחיקה",
+      danger: true,
+    });
+    if (!ok) return;
     onChange(blocks.filter((_, i) => i !== index));
   }
 
@@ -85,7 +105,10 @@ export function BlockList({
         <AddButton icon={<ImageIcon size={14} />} label="תמונה" onClick={() => addBlock("image")} />
         <AddButton icon={<FileText size={14} />} label="PDF" onClick={() => addBlock("pdf")} />
         <AddButton icon={<Columns size={14} />} label="טאבים" onClick={() => addBlock("tabs_container")} />
+        <AddButton icon={<LinkIcon size={14} />} label="כפתור קישור" onClick={() => addBlock("link_button")} />
+        <AddButton icon={<Table size={14} />} label="טבלה" onClick={() => addBlock("data_table")} />
       </div>
+      {dialog}
     </div>
   );
 }

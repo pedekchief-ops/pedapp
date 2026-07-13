@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { BlockList } from "./BlockList";
+import { useConfirmDialog } from "@/components/ConfirmDialog";
 import type { BlockDraft, TabsContainerContent } from "@/lib/supabase/types";
 
 // Manages a tabs_container block's tab metadata (add/rename/remove) and,
@@ -20,6 +21,7 @@ export function TabsBlockEditor({
   onChange: (update: { content?: TabsContainerContent; children?: BlockDraft[] }) => void;
 }) {
   const [activeKey, setActiveKey] = useState<string | undefined>(content.tabs[0]?.key);
+  const { confirm, dialog } = useConfirmDialog();
 
   function addTab() {
     const key = crypto.randomUUID();
@@ -34,8 +36,16 @@ export function TabsBlockEditor({
     });
   }
 
-  function removeTab(key: string) {
+  async function removeTab(key: string) {
     if (content.tabs.length <= 1) return;
+    const tab = content.tabs.find((t) => t.key === key);
+    const ok = await confirm({
+      title: `למחוק את הטאב "${tab?.label_he}"?`,
+      description: "כל התוכן בתוך הטאב הזה יימחק גם הוא. השינוי ייכנס לתוקף רק לאחר לחיצה על פרסום.",
+      confirmLabel: "מחיקה",
+      danger: true,
+    });
+    if (!ok) return;
     const nextTabs = content.tabs.filter((t) => t.key !== key);
     const nextChildren = childBlocks.filter((c) => c.tab_key !== key);
     onChange({ content: { tabs: nextTabs }, children: nextChildren });
@@ -88,6 +98,7 @@ export function TabsBlockEditor({
           }}
         />
       </div>
+      {dialog}
     </div>
   );
 }

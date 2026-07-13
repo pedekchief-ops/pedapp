@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Rubik } from "next/font/google";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { ToastProvider } from "@/components/Toast";
 import { createClient } from "@/lib/supabase/server";
 import { getAppSettings } from "@/lib/data";
 import { getContrastColor } from "@/lib/color";
@@ -76,7 +77,9 @@ export default async function RootLayout({
           Grammarly inject data-gr-* attributes onto <body> before React
           hydrates, which otherwise trips this same warning harmlessly. */}
       <body className="flex min-h-full flex-col" suppressHydrationWarning>
-        <ThemeProvider defaultTheme={settings.default_theme}>{children}</ThemeProvider>
+        <ThemeProvider defaultTheme={settings.default_theme}>
+          <ToastProvider>{children}</ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
