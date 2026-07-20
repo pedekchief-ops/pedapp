@@ -46,9 +46,13 @@ export default async function SearchPage({
 
       <ul className="flex flex-col gap-2">
         {results.map((hit) => (
-          <li key={`${hit.sectionSlug}-${hit.pageSlug}`}>
+          <li key={`${hit.medicationId ?? hit.pageSlug}-${hit.blockId ?? "page"}`}>
             <Link
-              href={`/${hit.sectionSlug}/${hit.pageSlug}`}
+              href={
+                hit.medicationId
+                  ? `/${hit.sectionSlug}?open=${hit.medicationId}`
+                  : `/${hit.sectionSlug}/${hit.pageSlug}`
+              }
               className="block rounded-xl border border-neutral-200 px-4 py-3 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
             >
               <span className="block text-sm font-medium text-neutral-900 dark:text-neutral-50">

@@ -215,6 +215,13 @@ export interface MedicationField {
   unit_field_key: string | null;
   is_title: boolean;
   show_in_summary: boolean;
+  // Flags a text field (generic name, trade name) as one site-wide search
+  // and the admin medications list's search box match drugs on -- see
+  // supabase/migrations/0009_medication_search_and_multiselect.sql.
+  is_searchable_name: boolean;
+  // Only meaningful for field_type 'select': allows choosing more than one
+  // option. When true, the stored value is a string[] instead of string.
+  multiple: boolean;
   order_index: number;
   created_at: string;
 }
@@ -234,8 +241,9 @@ export interface MedicationNumberRangeValue {
 
 // The shape stored at medications.values[field.key] depends on the field's
 // field_type: text -> string, number -> number, number_range ->
-// MedicationNumberRangeValue, select -> string (one of field.options).
-export type MedicationFieldValue = string | number | MedicationNumberRangeValue | null;
+// MedicationNumberRangeValue, select -> string (one of field.options), or
+// string[] when the select field has `multiple` set.
+export type MedicationFieldValue = string | number | string[] | MedicationNumberRangeValue | null;
 
 export interface Medication {
   id: string;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { MedicationsBrowser } from "./MedicationsBrowser";
 import type { MedicationCategory, MedicationField, MedicationWithCategories } from "@/lib/supabase/types";
 
@@ -56,6 +56,11 @@ export function MedicationsBrowserLoader() {
   }
 
   return (
-    <MedicationsBrowser fields={data.fields} categories={data.categories} medications={data.medications} />
+    // MedicationsBrowser reads useSearchParams() (for the ?open=<id> deep
+    // link from search results), which Next.js requires a Suspense
+    // boundary around.
+    <Suspense>
+      <MedicationsBrowser fields={data.fields} categories={data.categories} medications={data.medications} />
+    </Suspense>
   );
 }

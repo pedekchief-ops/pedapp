@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ChevronDown } from "lucide-react";
-import { formatMedicationFieldValue } from "@/lib/medications";
+import { formatMedicationFieldValue, getMedicationTitle } from "@/lib/medications";
 import type { MedicationCategory, MedicationField, MedicationWithCategories } from "@/lib/supabase/types";
 
 // The resident-facing medications view: a horizontally-scrolling row of
@@ -11,30 +12,63 @@ import type { MedicationCategory, MedicationField, MedicationWithCategories } fr
 // category as collapsed rows that expand inline into an accordion --
 // deliberately not a separate page/modal, so residents can compare
 // several drugs without losing their place.
-export function MedicationsBrowser({
-  fields,
-  categories,
-  medications,
-}: {
+//
+// Reads ?open=<medicationId> (set by a search result deep link, see
+// components/search/SearchOverlay.tsx) to decide the initial category/
+// expanded state, keyed by that id so navigating to a *different* search
+// result (without leaving /medications) remounts fresh with the new
+// initial state -- same pattern as the [pageSlug] route keys PageViewContent
+// by its route params.
+export function MedicationsBrowser(props: {
   fields: MedicationField[];
   categories: MedicationCategory[];
   medications: MedicationWithCategories[];
 }) {
-  const [activeCategory, setActiveCategory] = useState<string | undefined>(categories[0]?.id);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const openId = searchParams.get("open");
+  return <MedicationsBrowserView key={openId ?? "default"} openId={openId} {...props} />;
+}
 
-  const titleField = fields.find((f) => f.is_title);
+function MedicationsBrowserView({
+  fields,
+  categories,
+  medications,
+  openId,
+}: {
+  fields: MedicationField[];
+  categories: MedicationCategory[];
+  medications: MedicationWithCategories[];
+  openId: string | null;
+}) {
+  const openMedication = openId ? medications.find((m) => m.id === openId) : undefined;
+
+  const [activeCategory, setActiveCategory] = useState<string | undefined>(
+    openMedication?.categoryIds[0] ?? categories[0]?.id
+  );
+  const [expandedId, setExpandedId] = useState<string | null>(openMedication ? openId : null);
+
   const summaryFields = fields.filter((f) => f.show_in_summary);
   const detailFields = fields.filter((f) => !f.is_title);
 
+  useEffect(() => {
+    if (!openMedication) return;
+    requestAnimationFrame(() => {
+      document.getElementById(`medication-${openMedication.id}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+    // Only re-run if we're jumping to a different drug -- openMedication is
+    // recomputed every render but only its id should retrigger the scroll.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openMedication?.id]);
+
   const filtered = useMemo(() => {
     const list = medications.filter((m) => m.categoryIds.includes(activeCategory ?? ""));
-    return list.sort((a, b) => {
-      const an = titleField ? String(a.values[titleField.key] ?? "") : "";
-      const bn = titleField ? String(b.values[titleField.key] ?? "") : "";
-      return an.localeCompare(bn, "he");
-    });
-  }, [medications, activeCategory, titleField]);
+    return list.sort((a, b) =>
+      getMedicationTitle(fields, a.values).localeCompare(getMedicationTitle(fields, b.values), "he")
+    );
+  }, [medications, activeCategory, fields]);
 
   if (categories.length === 0) {
     return (
@@ -72,11 +106,12 @@ export function MedicationsBrowser({
         <ul className="flex flex-col gap-2">
           {filtered.map((medication) => {
             const isExpanded = expandedId === medication.id;
-            const title = titleField ? String(medication.values[titleField.key] ?? "") : "";
+            const title = getMedicationTitle(fields, medication.values);
 
             return (
               <li
                 key={medication.id}
+                id={`medication-${medication.id}`}
                 className="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800"
               >
                 <button

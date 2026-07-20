@@ -53,6 +53,7 @@ export async function updateMedicationField(
     options: string[] | null;
     unit_field_key: string | null;
     show_in_summary: boolean;
+    multiple: boolean;
   }>
 ) {
   const supabase = await createClient();

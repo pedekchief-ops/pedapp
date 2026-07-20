@@ -64,9 +64,12 @@ export function formatMedicationFieldValue(
 ): string {
   const value = values[field.key];
   if (value === null || value === undefined || value === "") return "";
+  if (Array.isArray(value) && value.length === 0) return "";
 
   let text: string;
-  if (field.field_type === "number_range") {
+  if (Array.isArray(value)) {
+    text = value.join(", ");
+  } else if (field.field_type === "number_range") {
     const range = value as MedicationNumberRangeValue;
     if (range.min == null && range.max == null) return "";
     text =
@@ -85,4 +88,29 @@ export function formatMedicationFieldValue(
   }
 
   return text;
+}
+
+// The drug's headline text (the one field flagged is_title) -- pulled out
+// as a helper since several components need exactly this.
+export function getMedicationTitle(
+  fields: MedicationField[],
+  values: Record<string, MedicationFieldValue>
+): string {
+  const titleField = fields.find((f) => f.is_title);
+  if (!titleField) return "";
+  const value = values[titleField.key];
+  return typeof value === "string" ? value : "";
+}
+
+// Every value from fields flagged is_searchable_name (generic name, trade
+// name by default) -- used both by site-wide search (lib/search.ts) and
+// the admin medications list's own search box.
+export function getMedicationSearchTexts(
+  fields: MedicationField[],
+  values: Record<string, MedicationFieldValue>
+): string[] {
+  return fields
+    .filter((f) => f.is_searchable_name)
+    .map((f) => values[f.key])
+    .filter((v): v is string => typeof v === "string" && v.length > 0);
 }

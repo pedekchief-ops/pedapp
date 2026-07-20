@@ -70,9 +70,14 @@ export function SearchOverlay({
   }, [trimmedQuery, scope, sectionFilter, currentSectionSlug, currentPageSlug]);
 
   function goTo(hit: SearchHit) {
-    const url = hit.blockId
-      ? `/${hit.sectionSlug}/${hit.pageSlug}#block-${hit.blockId}`
-      : `/${hit.sectionSlug}/${hit.pageSlug}`;
+    let url: string;
+    if (hit.medicationId) {
+      url = `/${hit.sectionSlug}?open=${hit.medicationId}`;
+    } else if (hit.blockId) {
+      url = `/${hit.sectionSlug}/${hit.pageSlug}#block-${hit.blockId}`;
+    } else {
+      url = `/${hit.sectionSlug}/${hit.pageSlug}`;
+    }
     onClose();
     router.push(url);
   }
@@ -147,7 +152,7 @@ export function SearchOverlay({
           {showResults && (
             <ul className="flex flex-col gap-1">
               {results.map((hit) => (
-                <li key={`${hit.pageSlug}-${hit.blockId ?? "page"}`}>
+                <li key={`${hit.medicationId ?? hit.pageSlug}-${hit.blockId ?? "page"}`}>
                   <button
                     type="button"
                     onClick={() => goTo(hit)}

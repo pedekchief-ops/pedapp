@@ -201,22 +201,37 @@ function FieldRow({
         )}
 
         {field.field_type === "select" && (
-          <input
-            value={optionsText}
-            onChange={(e) => setOptionsText(e.target.value)}
-            onBlur={() =>
-              startTransition(() =>
-                updateMedicationField(sectionSlug, field.id, {
-                  options: optionsText
-                    .split(",")
-                    .map((s) => s.trim())
-                    .filter(Boolean),
-                })
-              )
-            }
-            placeholder="אפשרויות, מופרדות בפסיק"
-            className="flex-1 rounded border border-neutral-300 px-2 py-1 dark:border-neutral-700 dark:bg-neutral-950"
-          />
+          <>
+            <input
+              value={optionsText}
+              onChange={(e) => setOptionsText(e.target.value)}
+              onBlur={() =>
+                startTransition(() =>
+                  updateMedicationField(sectionSlug, field.id, {
+                    options: optionsText
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean),
+                  })
+                )
+              }
+              placeholder="אפשרויות, מופרדות בפסיק"
+              className="flex-1 rounded border border-neutral-300 px-2 py-1 dark:border-neutral-700 dark:bg-neutral-950"
+            />
+            <label className="flex items-center gap-1.5">
+              <input
+                type="checkbox"
+                checked={field.multiple}
+                onChange={(e) =>
+                  startTransition(() =>
+                    updateMedicationField(sectionSlug, field.id, { multiple: e.target.checked })
+                  )
+                }
+                className="h-3.5 w-3.5"
+              />
+              בחירה מרובה
+            </label>
+          </>
         )}
       </div>
     </div>

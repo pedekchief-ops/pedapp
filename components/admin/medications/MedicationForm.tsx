@@ -107,6 +107,37 @@ function FieldInput({
   value: MedicationFieldValue;
   onChange: (value: MedicationFieldValue) => void;
 }) {
+  if (field.field_type === "select" && field.multiple) {
+    const selected = Array.isArray(value) ? value : [];
+    return (
+      <div className="flex flex-wrap gap-2">
+        {(field.options ?? []).map((opt) => {
+          const checked = selected.includes(opt);
+          return (
+            <label
+              key={opt}
+              className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs ${
+                checked
+                  ? "border-primary text-primary"
+                  : "border-neutral-300 text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={() =>
+                  onChange(checked ? selected.filter((o) => o !== opt) : [...selected, opt])
+                }
+                className="h-3 w-3"
+              />
+              {opt}
+            </label>
+          );
+        })}
+      </div>
+    );
+  }
+
   if (field.field_type === "select") {
     return (
       <select

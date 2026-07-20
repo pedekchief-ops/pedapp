@@ -3,12 +3,17 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export interface SearchHit {
   sectionSlug: string;
   sectionNameHe: string;
-  pageSlug: string;
+  // null for a medication hit (medications aren't pages) -- see medicationId.
+  pageSlug: string | null;
+  // For a medication hit, this is the drug's display name instead of a page title.
   pageTitleHe: string;
-  // Set only for page-scoped search (see searchContent below) -- lets the
-  // UI list/jump to each individual matching block rather than just the
-  // page as a whole.
+  // Set only for page-scoped search -- lets the UI list/jump to each
+  // individual matching block rather than just the page as a whole.
   blockId: string | null;
+  // Set only for a medication hit -- lets the UI deep-link into the
+  // medications browser (see components/medications/MedicationsBrowser.tsx's
+  // `open` query param handling).
+  medicationId: string | null;
   snippet: string | null;
 }
 
@@ -23,6 +28,7 @@ interface SectionRow {
   id: string;
   slug: string;
   name_he: string;
+  section_type: "generic" | "medications";
 }
 
 interface BlockRow {
@@ -49,10 +55,56 @@ function snippetFromContent(content: unknown, query: string): string | null {
     .trim();
 }
 
+// Matches drugs by their "searchable name" fields (generic name, trade
+// name by default -- see medication_fields.is_searchable_name in
+// supabase/migrations/0009_medication_search_and_multiselect.sql).
+// Medications aren't scoped to a section in the schema (there's exactly
+// one shared medication list), so `section` here is whichever
+// medications-type section should be credited as the result's location.
+async function searchMedications(
+  supabase: SupabaseClient,
+  query: string,
+  section: SectionRow
+): Promise<SearchHit[]> {
+  const { data: fieldsData } = await supabase
+    .from("medication_fields")
+    .select("key")
+    .eq("is_searchable_name", true);
+  const searchableKeys = ((fieldsData ?? []) as { key: string }[]).map((f) => f.key);
+  if (searchableKeys.length === 0) return [];
+
+  const { data: medicationsData } = await supabase.from("medications").select("id, values");
+  const lowerQuery = query.toLowerCase();
+
+  const hits: SearchHit[] = [];
+  for (const medication of (medicationsData ?? []) as { id: string; values: Record<string, unknown> }[]) {
+    for (const key of searchableKeys) {
+      const value = medication.values[key];
+      if (typeof value === "string" && value.toLowerCase().includes(lowerQuery)) {
+        hits.push({
+          sectionSlug: section.slug,
+          sectionNameHe: section.name_he,
+          pageSlug: null,
+          pageTitleHe: value,
+          blockId: null,
+          medicationId: medication.id,
+          snippet: null,
+        });
+        break;
+      }
+    }
+  }
+  return hits;
+}
+
 // Searches page titles and block content, optionally scoped to one
 // section (category) and/or one specific page. Page-scoped search returns
 // one hit per matching block (with a snippet) so the caller can list every
 // match within that page; broader searches collapse to one hit per page.
+// Also searches medications by name, when the scope allows it (see the
+// section_type check below -- a medications-type section's "category
+// scope" naturally means searching drug names instead of pages/blocks,
+// since that section doesn't use the page builder at all).
 export async function searchContent(
   supabase: SupabaseClient,
   params: { query: string; sectionSlug?: string; pageSlug?: string }
@@ -60,12 +112,18 @@ export async function searchContent(
   const query = params.query.trim();
   if (query.length < 2) return [];
 
-  let sectionId: string | undefined;
+  let scopedSection: SectionRow | undefined;
   if (params.sectionSlug) {
-    const { data } = await supabase.from("sections").select("id").eq("slug", params.sectionSlug).single();
+    const { data } = await supabase
+      .from("sections")
+      .select("id, slug, name_he, section_type")
+      .eq("slug", params.sectionSlug)
+      .single();
     if (!data) return [];
-    sectionId = data.id;
+    scopedSection = data as SectionRow;
   }
+
+  const sectionId = scopedSection?.id;
 
   let pageId: string | undefined;
   if (params.pageSlug && sectionId) {
@@ -79,11 +137,38 @@ export async function searchContent(
     pageId = data.id;
   }
 
+  // Medication hits: included for a global search (using whichever
+  // medications-type section exists) or when scoped to a medications-type
+  // section specifically. Not included when scoped to a specific page
+  // (page-scope only makes sense for the generic page builder).
+  let medicationHits: SearchHit[] = [];
+  if (!params.pageSlug) {
+    let medicationSection = scopedSection;
+    if (!medicationSection) {
+      const { data } = await supabase
+        .from("sections")
+        .select("id, slug, name_he, section_type")
+        .eq("section_type", "medications")
+        .limit(1)
+        .maybeSingle();
+      medicationSection = (data as SectionRow | null) ?? undefined;
+    }
+    if (medicationSection && medicationSection.section_type === "medications") {
+      medicationHits = await searchMedications(supabase, query, medicationSection);
+    }
+  }
+
+  // A medications-type section has no pages/blocks to search -- stop here
+  // rather than running pointless queries against an empty set.
+  if (scopedSection?.section_type === "medications") {
+    return medicationHits;
+  }
+
   let candidatePageIds: string[] | undefined;
   if (sectionId && !pageId) {
     const { data } = await supabase.from("pages").select("id").eq("section_id", sectionId);
     candidatePageIds = ((data ?? []) as Pick<PageRow, "id">[]).map((p) => p.id);
-    if (candidatePageIds.length === 0) return [];
+    if (candidatePageIds.length === 0) return medicationHits;
   }
 
   let titleQuery = supabase
@@ -110,7 +195,7 @@ export async function searchContent(
   const pageIdsNeeded = new Set<string>();
   titleMatches.forEach((p) => pageIdsNeeded.add(p.id));
   blockMatches.forEach((b) => pageIdsNeeded.add(b.page_id));
-  if (pageIdsNeeded.size === 0) return [];
+  if (pageIdsNeeded.size === 0) return medicationHits;
 
   const { data: pagesData } = await supabase
     .from("pages")
@@ -125,8 +210,8 @@ export async function searchContent(
     .from("sections")
     .select("id, slug, name_he")
     .in("id", Array.from(sectionIdsNeeded));
-  const sectionsById = new Map<string, SectionRow>(
-    ((sectionsData ?? []) as SectionRow[]).map((s) => [s.id, s])
+  const sectionsById = new Map<string, { id: string; slug: string; name_he: string }>(
+    ((sectionsData ?? []) as { id: string; slug: string; name_he: string }[]).map((s) => [s.id, s])
   );
 
   const hits = new Map<string, SearchHit>();
@@ -144,6 +229,7 @@ export async function searchContent(
       pageSlug: page.slug,
       pageTitleHe: page.title_he,
       blockId,
+      medicationId: null,
       snippet,
     });
   }
@@ -155,5 +241,5 @@ export async function searchContent(
     addHit(b.page_id, pageId ? b.id : null, snippetFromContent(b.content, query));
   }
 
-  return Array.from(hits.values());
+  return [...medicationHits, ...Array.from(hits.values())];
 }

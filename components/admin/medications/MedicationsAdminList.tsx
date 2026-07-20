@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Plus, Pencil, Trash2, FolderPlus, FolderMinus } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import { Plus, Pencil, Trash2, FolderPlus, FolderMinus, Search } from "lucide-react";
 import {
   bulkDeleteMedications,
   bulkSetMedicationCategory,
@@ -10,6 +10,7 @@ import {
 } from "@/lib/actions/medications";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
+import { getMedicationSearchTexts, getMedicationTitle } from "@/lib/medications";
 import { MedicationForm } from "./MedicationForm";
 import type {
   MedicationCategory,
@@ -37,12 +38,20 @@ export function MedicationsAdminList({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkCategory, setBulkCategory] = useState("");
+  const [search, setSearch] = useState("");
   const [saving, startSaving] = useTransition();
   const { confirm, dialog } = useConfirmDialog();
   const { showToast } = useToast();
 
-  const titleField = fields.find((f) => f.is_title);
   const categoriesById = new Map(categories.map((c) => [c.id, c]));
+
+  const visibleMedications = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return medications;
+    return medications.filter((m) =>
+      getMedicationSearchTexts(fields, m.values).some((text) => text.toLowerCase().includes(query))
+    );
+  }, [medications, fields, search]);
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -67,7 +76,7 @@ export function MedicationsAdminList({
   }
 
   async function handleDelete(medication: MedicationWithCategories) {
-    const name = titleField ? String(medication.values[titleField.key] ?? "התרופה") : "התרופה";
+    const name = getMedicationTitle(fields, medication.values) || "התרופה";
     const ok = await confirm({
       title: `למחוק את "${name}"?`,
       description: "לא ניתן לשחזר פעולה זו.",
@@ -114,19 +123,31 @@ export function MedicationsAdminList({
 
   return (
     <div className="flex flex-col gap-3">
-      {!adding && (
-        <button
-          type="button"
-          onClick={() => {
-            setAdding(true);
-            setEditingId(null);
-          }}
-          className="flex items-center justify-center gap-1 self-start rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
-        >
-          <Plus size={16} />
-          תרופה חדשה
-        </button>
-      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {!adding && (
+          <button
+            type="button"
+            onClick={() => {
+              setAdding(true);
+              setEditingId(null);
+            }}
+            className="flex items-center justify-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
+          >
+            <Plus size={16} />
+            תרופה חדשה
+          </button>
+        )}
+        <div className="flex flex-1 items-center gap-2 rounded-lg border border-neutral-300 px-2 py-1.5 dark:border-neutral-700">
+          <Search size={14} className="text-neutral-400" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="חיפוש תרופה לפי שם..."
+            className="w-full min-w-0 bg-transparent text-sm outline-none"
+          />
+        </div>
+      </div>
 
       {adding && (
         <div className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
@@ -188,13 +209,15 @@ export function MedicationsAdminList({
         </div>
       )}
 
-      {medications.length === 0 ? (
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">אין עדיין תרופות.</p>
+      {visibleMedications.length === 0 ? (
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          {medications.length === 0 ? "אין עדיין תרופות." : "לא נמצאו תרופות מתאימות לחיפוש."}
+        </p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {medications.map((medication) => {
+          {visibleMedications.map((medication) => {
             const isEditing = editingId === medication.id;
-            const name = titleField ? String(medication.values[titleField.key] ?? "(ללא שם)") : "(ללא שם)";
+            const name = getMedicationTitle(fields, medication.values) || "(ללא שם)";
 
             return (
               <li
