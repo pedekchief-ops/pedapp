@@ -14,13 +14,15 @@ import type { StorageBucket } from "@/lib/supabase/storage";
 export function FileUploader({
   bucket,
   currentPath,
+  currentFilename,
   accept,
   onUploaded,
 }: {
   bucket: StorageBucket;
   currentPath?: string;
+  currentFilename?: string;
   accept: string;
-  onUploaded: (result: { fileId: string; storagePath: string }) => void;
+  onUploaded: (result: { fileId: string; storagePath: string; filename: string }) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -35,7 +37,17 @@ export function FileUploader({
       data: { user },
     } = await supabase.auth.getUser();
 
-    const path = `${crypto.randomUUID()}-${file.name}`;
+    // The storage *key* must always be a plain ASCII path -- Supabase
+    // Storage rejects uploads whose key contains non-ASCII characters
+    // (Hebrew filenames), spaces, or other punctuation with an "Invalid
+    // key" error. The original name (Hebrew, spaces, whatever) is real
+    // and worth keeping, so it's passed back separately via `filename` for
+    // display/download instead of being baked into the key.
+    const dotIndex = file.name.lastIndexOf(".");
+    const rawExtension = dotIndex > -1 ? file.name.slice(dotIndex) : "";
+    const safeExtension = rawExtension.replace(/[^a-zA-Z0-9.]/g, "");
+    const path = `${crypto.randomUUID()}${safeExtension}`;
+
     const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file);
     if (uploadError) {
       setUploading(false);
@@ -59,7 +71,7 @@ export function FileUploader({
       return;
     }
 
-    onUploaded({ fileId: fileRow.id, storagePath: path });
+    onUploaded({ fileId: fileRow.id, storagePath: path, filename: file.name });
   }
 
   return (
@@ -77,7 +89,7 @@ export function FileUploader({
             <FileText size={16} />
           )}
           <span className="truncate" dir="ltr">
-            {currentPath.split("-").slice(1).join("-")}
+            {currentFilename || currentPath}
           </span>
         </div>
       )}

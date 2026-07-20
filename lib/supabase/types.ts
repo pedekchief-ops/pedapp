@@ -69,10 +69,14 @@ export interface RichTextContent {
 // `storage_path` is denormalized from the `files` table at upload time so
 // rendering a page never needs an extra join -- it's safe because a file's
 // storage path never changes once uploaded (re-uploading creates a new
-// `files` row + a new path rather than overwriting).
+// `files` row + a new path rather than overwriting). `storage_path` itself
+// is always a safe ASCII key (see components/editor/FileUploader.tsx) --
+// `original_filename` carries the real name (which may contain Hebrew,
+// spaces, etc.) purely for display and download purposes.
 export interface ImageContent {
   file_id: string;
   storage_path: string;
+  original_filename?: string;
   alt_he?: string;
   alt_en?: string;
 }
@@ -80,6 +84,7 @@ export interface ImageContent {
 export interface PdfContent {
   file_id: string;
   storage_path: string;
+  original_filename?: string;
   title?: string;
 }
 

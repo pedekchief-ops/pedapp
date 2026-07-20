@@ -24,7 +24,13 @@ export function SettingsForm({ initial }: { initial: AppSettings }) {
   async function handleLogoFile(file: File) {
     setUploading(true);
     const supabase = createClient();
-    const path = `branding/logo-${Date.now()}-${file.name}`;
+    // Storage keys must be plain ASCII -- see the matching comment in
+    // components/editor/FileUploader.tsx for why the original filename
+    // (which may contain Hebrew/spaces/etc.) can't be used directly.
+    const dotIndex = file.name.lastIndexOf(".");
+    const rawExtension = dotIndex > -1 ? file.name.slice(dotIndex) : "";
+    const safeExtension = rawExtension.replace(/[^a-zA-Z0-9.]/g, "");
+    const path = `branding/logo-${Date.now()}${safeExtension}`;
     const { error } = await supabase.storage.from("images").upload(path, file, {
       upsert: true,
     });

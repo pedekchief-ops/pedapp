@@ -21,7 +21,7 @@ export function ImageBlock({ content }: { content: ImageContent }) {
   if (!content.storage_path) return null;
 
   const url = getPublicUrl("images", content.storage_path);
-  const filename = content.storage_path.split("-").slice(1).join("-") || "image";
+  const filename = content.original_filename || content.storage_path;
 
   if (failed) {
     return (

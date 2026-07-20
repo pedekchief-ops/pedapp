@@ -46,11 +46,17 @@ export function BlockEditor({
         <FileUploader
           bucket="images"
           currentPath={content.storage_path || undefined}
+          currentFilename={content.original_filename}
           accept="image/*"
-          onUploaded={({ fileId, storagePath }) =>
+          onUploaded={({ fileId, storagePath, filename }) =>
             onChange({
               ...block,
-              content: { ...content, file_id: fileId, storage_path: storagePath },
+              content: {
+                ...content,
+                file_id: fileId,
+                storage_path: storagePath,
+                original_filename: filename,
+              },
             })
           }
         />
@@ -78,11 +84,17 @@ export function BlockEditor({
         <FileUploader
           bucket="pdfs"
           currentPath={content.storage_path || undefined}
+          currentFilename={content.original_filename}
           accept="application/pdf"
-          onUploaded={({ fileId, storagePath }) =>
+          onUploaded={({ fileId, storagePath, filename }) =>
             onChange({
               ...block,
-              content: { ...content, file_id: fileId, storage_path: storagePath },
+              content: {
+                ...content,
+                file_id: fileId,
+                storage_path: storagePath,
+                original_filename: filename,
+              },
             })
           }
         />

@@ -25,10 +25,7 @@ export function PdfBlock({ content }: { content: PdfContent }) {
   if (!content.storage_path) return null;
 
   const url = getPublicUrl("pdfs", content.storage_path);
-  // Storage paths are "<uuid>-<original filename>" (see
-  // components/editor/FileUploader.tsx) -- strip the uuid prefix back off
-  // for a sensible downloaded filename.
-  const filename = content.storage_path.split("-").slice(1).join("-") || "document.pdf";
+  const filename = content.original_filename || content.storage_path;
   const title = content.title || filename;
 
   return (
