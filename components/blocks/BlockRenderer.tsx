@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import type {
   BlockNode,
   DataTableContent,
@@ -12,18 +11,10 @@ import type {
 } from "@/lib/supabase/types";
 import { RichTextBlock } from "./RichTextBlock";
 import { ImageBlock } from "./ImageBlock";
+import { PdfBlock } from "./PdfBlock";
 import { TabsBlock } from "./TabsBlock";
 import { LinkButtonBlock } from "./LinkButtonBlock";
 import { DataTableBlock } from "./DataTableBlock";
-
-// pdfjs-dist (used inside PdfBlock) assumes a browser environment and
-// crashes ("Object.defineProperty called on non-object") if its module
-// code runs during server rendering. `ssr: false` guarantees it's only
-// ever imported in the browser, after hydration.
-const PdfBlock = dynamic(() => import("./PdfBlock").then((m) => m.PdfBlock), {
-  ssr: false,
-  loading: () => <p className="p-4 text-sm text-neutral-500 dark:text-neutral-400">טוען PDF...</p>,
-});
 
 // Pure dispatch by block.type -- no data fetching of its own, so it's safe
 // to render from any client-rendered tree (the resident page view, or

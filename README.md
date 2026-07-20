@@ -8,8 +8,8 @@ architecture plan.
 ## Stack
 
 Next.js (App Router) + TypeScript + Tailwind CSS, Supabase (Postgres, Auth,
-Storage), Serwist (offline PWA), TipTap (rich text), react-pdf (inline PDF
-viewer), Web Push for update notifications.
+Storage), Serwist (offline PWA), TipTap (rich text), native `<iframe>` for
+inline PDF viewing, Web Push for update notifications.
 
 ## One-time setup
 
@@ -18,9 +18,6 @@ viewer), Web Push for update notifications.
    ```bash
    npm install
    ```
-
-   This also copies the pdf.js worker into `public/` (see
-   `scripts/copy-pdf-worker.mjs`).
 
 2. **Create a Supabase project**
 

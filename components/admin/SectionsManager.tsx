@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { ArrowUp, ArrowDown, Trash2, Plus, ExternalLink } from "lucide-react";
+import { ArrowUp, ArrowDown, Trash2, Plus, ExternalLink, Pencil, X } from "lucide-react";
 import {
   createSection,
   deleteSection,
@@ -25,6 +25,7 @@ export function SectionsManager({
   sections: Section[];
   pageCounts: Map<string, number>;
 }) {
+  const [editMode, setEditMode] = useState(false);
   const [adding, setAdding] = useState(false);
   const [pending, startTransition] = useTransition();
   const { confirm, dialog } = useConfirmDialog();
@@ -47,8 +48,54 @@ export function SectionsManager({
     });
   }
 
+  if (!editMode) {
+    return (
+      <div className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-2">
+          {sections.map((section) => (
+            <li
+              key={section.id}
+              className="rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900"
+            >
+              <Link
+                href={`/admin/${section.slug}`}
+                className="flex items-center justify-between px-4 py-3"
+              >
+                <span className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                  {section.name_he}
+                </span>
+                <span className="text-xs text-neutral-400">
+                  {section.section_type === "medications"
+                    ? "תרופות"
+                    : `${pageCounts.get(section.id) ?? 0} עמודים`}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <button
+          type="button"
+          onClick={() => setEditMode(true)}
+          className="flex items-center justify-center gap-1 self-start rounded-lg border border-neutral-300 px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+        >
+          <Pencil size={14} />
+          עריכת דפים
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-3">
+      <button
+        type="button"
+        onClick={() => setEditMode(false)}
+        className="flex items-center justify-center gap-1 self-start rounded-lg border border-neutral-300 px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+      >
+        <X size={14} />
+        סיום עריכה
+      </button>
+
       <ul className="flex flex-col gap-2">
         {sections.map((section, index) => (
           <SectionRow

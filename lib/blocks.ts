@@ -1,4 +1,4 @@
-import type { Block, BlockNode } from "@/lib/supabase/types";
+import type { Block, BlockDraft, BlockNode, ImageContent, PdfContent } from "@/lib/supabase/types";
 
 // Turns the flat `blocks` table rows for a page into the nested tree the
 // renderer and editor actually want to work with: top-level blocks in
@@ -42,4 +42,21 @@ export function flattenBlockTree(nodes: BlockNode[]): Block[] {
   }
   nodes.forEach(visit);
   return result;
+}
+
+// Counts image/pdf blocks (anywhere in the tree, including inside tabs)
+// that were added but never had a file actually uploaded -- an empty
+// storage_path renders as nothing to residents (see
+// components/blocks/ImageBlock.tsx / PdfBlock.tsx), so PageEditor warns
+// before publishing one rather than silently shipping a blank block.
+export function countIncompleteFileBlocks(drafts: BlockDraft[]): number {
+  let count = 0;
+  for (const draft of drafts) {
+    if (draft.type === "image" || draft.type === "pdf") {
+      const content = draft.content as ImageContent | PdfContent;
+      if (!content.storage_path) count++;
+    }
+    count += countIncompleteFileBlocks(draft.children);
+  }
+  return count;
 }
