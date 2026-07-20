@@ -1,6 +1,7 @@
 import { defaultCache } from "@serwist/next/worker";
 import {
   CacheableResponsePlugin,
+  CacheFirst,
   ExpirationPlugin,
   NetworkFirst,
   Serwist,
@@ -24,10 +25,18 @@ declare const self: ServiceWorkerGlobalScope;
 //    fetch these, and they're the thing that must keep working offline.
 //    NetworkFirst tries the live network (so edits show up immediately)
 //    and only falls back to the cached copy when there's no connection.
-// 2. Uploaded PDFs/images from Supabase Storage: content-addressed by a
-//    random path that's never reused for different bytes (see the comment
-//    on ImageContent/PdfContent in lib/supabase/types.ts), so it's safe to
-//    prefer the cache and only hit the network for anything not seen yet.
+// 2. Uploaded images from Supabase Storage, and PDFs via our own
+//    same-origin proxy (app/api/files/pdfs/[...path]/route.ts -- PDFs
+//    can't be fetched directly from Storage anymore since the pdf.js
+//    viewer requires a same-origin `file` URL): both are
+//    content-addressed by a random path that's never reused for
+//    different bytes (see the comment on ImageContent/PdfContent in
+//    lib/supabase/types.ts), so it's safe to prefer the cache and only
+//    hit the network for anything not seen yet.
+// 3. The self-hosted pdf.js viewer app (public/pdfjs-viewer/, see
+//    components/blocks/PdfBlock.tsx) -- static files that never change
+//    once deployed, so CacheFirst is safe and means a PDF a resident has
+//    opened once keeps working fully offline afterward.
 const appRuntimeCaching: RuntimeCaching[] = [
   {
     matcher: ({ url, sameOrigin }) =>
@@ -41,13 +50,24 @@ const appRuntimeCaching: RuntimeCaching[] = [
     }),
   },
   {
-    matcher: ({ url }) =>
-      url.href.startsWith(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/`),
+    matcher: ({ url, sameOrigin }) =>
+      url.href.startsWith(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/`) ||
+      (sameOrigin && url.pathname.startsWith("/api/files/")),
     handler: new StaleWhileRevalidate({
       cacheName: "uploaded-files",
       plugins: [
         new CacheableResponsePlugin({ statuses: [0, 200] }),
         new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 60 }),
+      ],
+    }),
+  },
+  {
+    matcher: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith("/pdfjs-viewer/"),
+    handler: new CacheFirst({
+      cacheName: "pdfjs-viewer",
+      plugins: [
+        new CacheableResponsePlugin({ statuses: [0, 200] }),
+        new ExpirationPlugin({ maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 365 }),
       ],
     }),
   },

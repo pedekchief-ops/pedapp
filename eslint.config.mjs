@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Compiled by Serwist from app/sw.ts at build time, not our code.
     "public/sw.js",
+    // Vendored copy of Mozilla's prebuilt pdf.js viewer, not our code --
+    // see components/blocks/PdfBlock.tsx for why it's here.
+    "public/pdfjs-viewer/**",
   ]),
 ]);
 

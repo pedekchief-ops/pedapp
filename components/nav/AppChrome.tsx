@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Menu, X, Moon, Sun, LogOut, ShieldCheck, Search, Home } from "lucide-react";
 import { signOut } from "@/lib/actions/auth";
 import { OfflinePrefetcher } from "@/components/OfflinePrefetcher";
 import { PushSubscribeToggle } from "@/components/PushSubscribeToggle";
 import { SearchOverlay } from "@/components/search/SearchOverlay";
+import { BackButton } from "@/components/BackButton";
 import type { Profile, Section } from "@/lib/supabase/types";
 
 // The persistent chrome around every resident-facing page: a top bar with a
@@ -31,10 +33,13 @@ export function AppChrome({
 }) {
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const pathname = usePathname();
+  const isHome = pathname === "/";
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-40 flex items-center gap-3 border-b border-neutral-200 bg-white/90 px-4 py-3 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/90">
+      <header className="sticky top-0 z-40 flex items-center gap-1 border-b border-neutral-200 bg-white/90 px-2 py-3 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/90">
+        {!isHome && <BackButton />}
         <button
           type="button"
           aria-label="פתיחת תפריט"
@@ -43,7 +48,7 @@ export function AppChrome({
         >
           <Menu size={22} />
         </button>
-        <Link href="/" className="flex flex-1 items-center gap-2 text-base font-semibold text-neutral-900 dark:text-neutral-50">
+        <Link href="/" className="flex flex-1 items-center gap-2 px-1 text-base font-semibold text-neutral-900 dark:text-neutral-50">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={logoUrl} alt="" className="h-7 w-7 rounded object-contain" />
