@@ -2,8 +2,10 @@ import { notFound } from "next/navigation";
 import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPagesForSection, getSectionBySlug, getSections } from "@/lib/data";
+import { getMedicationCategories, getMedicationFields, getMedicationsWithCategories } from "@/lib/medications";
 import { createPage } from "@/lib/actions/admin";
 import { PagesListWithSelection } from "@/components/admin/PagesListWithSelection";
+import { MedicationsAdmin } from "@/components/admin/medications/MedicationsAdmin";
 
 export default async function AdminSectionPage({
   params,
@@ -15,6 +17,27 @@ export default async function AdminSectionPage({
 
   const section = await getSectionBySlug(supabase, sectionSlug);
   if (!section) notFound();
+
+  if (section.section_type === "medications") {
+    const [fields, categories, medications] = await Promise.all([
+      getMedicationFields(supabase),
+      getMedicationCategories(supabase),
+      getMedicationsWithCategories(supabase),
+    ]);
+    return (
+      <div>
+        <h1 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
+          {section.name_he}
+        </h1>
+        <MedicationsAdmin
+          sectionSlug={section.slug}
+          fields={fields}
+          categories={categories}
+          medications={medications}
+        />
+      </div>
+    );
+  }
 
   const [pages, allSections] = await Promise.all([
     getPagesForSection(supabase, section.id),

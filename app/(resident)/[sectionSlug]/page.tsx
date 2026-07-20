@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getPagesForSection, getSectionBySlug } from "@/lib/data";
+import { MedicationsBrowserLoader } from "@/components/medications/MedicationsBrowserLoader";
 
 export default async function SectionPage({
   params,
@@ -13,6 +14,15 @@ export default async function SectionPage({
 
   const section = await getSectionBySlug(supabase, sectionSlug);
   if (!section) notFound();
+
+  // 'medications' sections get a dedicated structured browser instead of
+  // the generic pages list -- see supabase/migrations/0008_medications.sql.
+  // Fetched client-side (MedicationsBrowserLoader -> /api/medications) so
+  // the offline service worker can cache it, matching how the generic page
+  // view works (app/(resident)/[sectionSlug]/[pageSlug]/page.tsx).
+  if (section.section_type === "medications") {
+    return <MedicationsBrowserLoader />;
+  }
 
   const pages = await getPagesForSection(supabase, section.id);
 

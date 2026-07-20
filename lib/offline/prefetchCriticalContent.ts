@@ -31,11 +31,18 @@ export async function prefetchCriticalContent() {
   const supabase = createClient();
   const { data: sections } = await supabase
     .from("sections")
-    .select("id, slug")
+    .select("id, slug, section_type")
     .eq("is_offline_critical", true);
   if (!sections?.length) return;
 
   for (const section of sections) {
+    if (section.section_type === "medications") {
+      // No files to warm -- medication data is plain structured values,
+      // not blocks/uploads (see supabase/migrations/0008_medications.sql).
+      await fetch("/api/medications").catch(() => null);
+      continue;
+    }
+
     const { data: pages } = await supabase
       .from("pages")
       .select("slug")

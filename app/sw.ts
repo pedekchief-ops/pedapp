@@ -15,21 +15,23 @@ declare global {
 }
 declare const self: ServiceWorkerGlobalScope;
 
-// Two rules specific to this app, tried before the generic Next.js
-// defaults below. Order matters: Serwist uses the first matching route.
+// Rules specific to this app, tried before the generic Next.js defaults
+// below. Order matters: Serwist uses the first matching route.
 //
-// 1. Page content JSON (/api/pages/...): the resident page view
-//    (app/(resident)/[sectionSlug]/[pageSlug]/page.tsx) fetches this, and
-//    it's the thing that must keep working offline. NetworkFirst tries the
-//    live network (so edits show up immediately) and only falls back to
-//    the cached copy when there's no connection.
+// 1. Page content JSON (/api/pages/... and /api/medications): the resident
+//    page view (app/(resident)/[sectionSlug]/[pageSlug]/page.tsx) and the
+//    medications browser (components/medications/MedicationsBrowserLoader.tsx)
+//    fetch these, and they're the thing that must keep working offline.
+//    NetworkFirst tries the live network (so edits show up immediately)
+//    and only falls back to the cached copy when there's no connection.
 // 2. Uploaded PDFs/images from Supabase Storage: content-addressed by a
 //    random path that's never reused for different bytes (see the comment
 //    on ImageContent/PdfContent in lib/supabase/types.ts), so it's safe to
 //    prefer the cache and only hit the network for anything not seen yet.
 const appRuntimeCaching: RuntimeCaching[] = [
   {
-    matcher: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith("/api/pages/"),
+    matcher: ({ url, sameOrigin }) =>
+      sameOrigin && (url.pathname.startsWith("/api/pages/") || url.pathname === "/api/medications"),
     handler: new NetworkFirst({
       cacheName: "page-content",
       plugins: [

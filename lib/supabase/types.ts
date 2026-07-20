@@ -31,6 +31,11 @@ export interface AppSettings {
   updated_at: string;
 }
 
+// 'medications' sections render the dedicated category-tabs + structured
+// drug list (components/medications/MedicationsBrowser.tsx) instead of the
+// default generic pages list -- see supabase/migrations/0008_medications.sql.
+export type SectionType = "generic" | "medications";
+
 export interface Section {
   id: string;
   slug: string;
@@ -39,6 +44,7 @@ export interface Section {
   icon: string;
   order_index: number;
   is_offline_critical: boolean;
+  section_type: SectionType;
   created_at: string;
 }
 
@@ -189,4 +195,56 @@ export interface BlockDraft {
   content: BlockContent;
   tab_key?: string | null;
   children: BlockDraft[];
+}
+
+// ----------------------------------------------------------------------------
+// Medications -- see supabase/migrations/0008_medications.sql for the full
+// design rationale (admin-configurable field schema, many-to-many
+// categories).
+// ----------------------------------------------------------------------------
+
+export type MedicationFieldType = "text" | "number" | "number_range" | "select";
+
+export interface MedicationField {
+  id: string;
+  key: string;
+  label_he: string;
+  label_en: string | null;
+  field_type: MedicationFieldType;
+  options: string[] | null;
+  unit_field_key: string | null;
+  is_title: boolean;
+  show_in_summary: boolean;
+  order_index: number;
+  created_at: string;
+}
+
+export interface MedicationCategory {
+  id: string;
+  name_he: string;
+  name_en: string | null;
+  order_index: number;
+  created_at: string;
+}
+
+export interface MedicationNumberRangeValue {
+  min: number | null;
+  max: number | null;
+}
+
+// The shape stored at medications.values[field.key] depends on the field's
+// field_type: text -> string, number -> number, number_range ->
+// MedicationNumberRangeValue, select -> string (one of field.options).
+export type MedicationFieldValue = string | number | MedicationNumberRangeValue | null;
+
+export interface Medication {
+  id: string;
+  values: Record<string, MedicationFieldValue>;
+  updated_by: string | null;
+  updated_at: string;
+  created_at: string;
+}
+
+export interface MedicationWithCategories extends Medication {
+  categoryIds: string[];
 }
