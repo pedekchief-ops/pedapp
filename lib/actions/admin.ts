@@ -94,6 +94,79 @@ export async function toggleSectionOfflineCritical(sectionId: string, value: boo
   revalidatePath("/admin");
 }
 
+// Adding/removing/renaming/reordering top-level nav sections (e.g. "מח
+// עצם" -> "בדיקות ומעבדות"). The slug is auto-generated (never shown to
+// the admin at creation time, same as createPage's page slugs) since it's
+// only a URL segment; SectionsManager.tsx still lets it be renamed
+// afterward alongside the display name.
+export async function createSection(params: {
+  name_he: string;
+  name_en: string;
+  icon: string;
+  section_type: "generic" | "medications";
+}) {
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("sections")
+    .select("order_index")
+    .order("order_index", { ascending: false })
+    .limit(1);
+  const nextOrder = (existing?.[0]?.order_index ?? 0) + 1;
+
+  const { error } = await supabase.from("sections").insert({
+    slug: `section-${Date.now().toString(36)}`,
+    name_he: params.name_he,
+    name_en: params.name_en,
+    icon: params.icon,
+    section_type: params.section_type,
+    order_index: nextOrder,
+  });
+  if (error) throw error;
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
+export async function updateSection(
+  sectionId: string,
+  params: Partial<{ slug: string; name_he: string; name_en: string; icon: string }>
+) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("sections").update(params).eq("id", sectionId);
+  if (error) throw error;
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
+export async function deleteSection(sectionId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("sections").delete().eq("id", sectionId);
+  if (error) throw error;
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
+export async function moveSection(sectionId: string, direction: -1 | 1) {
+  const supabase = await createClient();
+  const { data: sections, error } = await supabase
+    .from("sections")
+    .select("id, order_index")
+    .order("order_index", { ascending: true });
+  if (error) throw error;
+
+  const index = (sections ?? []).findIndex((s: { id: string }) => s.id === sectionId);
+  const targetIndex = index + direction;
+  if (index === -1 || targetIndex < 0 || targetIndex >= (sections ?? []).length) return;
+
+  const a = sections![index];
+  const b = sections![targetIndex];
+  await Promise.all([
+    supabase.from("sections").update({ order_index: b.order_index }).eq("id", a.id),
+    supabase.from("sections").update({ order_index: a.order_index }).eq("id", b.id),
+  ]);
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
 // Updates the single app_settings row (see
 // supabase/migrations/0005_app_settings.sql). `logoStoragePath` is already
 // uploaded to Storage by the time this runs (components/admin/SettingsForm.tsx

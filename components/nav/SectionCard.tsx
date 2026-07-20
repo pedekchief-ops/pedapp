@@ -1,35 +1,9 @@
 import Link from "next/link";
-import {
-  Info,
-  Pill,
-  GraduationCap,
-  Siren,
-  Baby,
-  HeartPulse,
-  Droplet,
-  Bone,
-  Folder,
-  type LucideIcon,
-} from "lucide-react";
+import { DEFAULT_SECTION_ICON, SECTION_ICONS } from "@/lib/sectionIcons";
 import type { Section } from "@/lib/supabase/types";
 
-// Maps the `icon` string stored on each section row (see
-// supabase/migrations/0002_seed_sections.sql) to an actual lucide-react
-// component. Falls back to a generic folder icon for any section created
-// later from the admin CMS with an icon name we don't recognize yet.
-const ICONS: Record<string, LucideIcon> = {
-  info: Info,
-  pill: Pill,
-  "graduation-cap": GraduationCap,
-  siren: Siren,
-  baby: Baby,
-  "heart-pulse": HeartPulse,
-  droplet: Droplet,
-  bone: Bone,
-};
-
 export function SectionCard({ section }: { section: Section }) {
-  const Icon = ICONS[section.icon] ?? Folder;
+  const Icon = SECTION_ICONS[section.icon] ?? DEFAULT_SECTION_ICON;
 
   return (
     <Link

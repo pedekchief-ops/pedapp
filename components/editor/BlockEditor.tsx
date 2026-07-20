@@ -1,5 +1,6 @@
 "use client";
 
+import { TriangleAlert } from "lucide-react";
 import { TipTapEditor } from "./TipTapEditor";
 import { FileUploader } from "./FileUploader";
 import { TabsBlockEditor } from "./TabsBlockEditor";
@@ -36,6 +37,12 @@ export function BlockEditor({
     const content = block.content as ImageContent;
     return (
       <div className="flex flex-col gap-2">
+        {!content.storage_path && (
+          <p className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+            <TriangleAlert size={14} />
+            עדיין לא הועלה קובץ -- לא יוצג באפליקציה עד שתעלו תמונה
+          </p>
+        )}
         <FileUploader
           bucket="images"
           currentPath={content.storage_path || undefined}
@@ -62,6 +69,12 @@ export function BlockEditor({
     const content = block.content as PdfContent;
     return (
       <div className="flex flex-col gap-2">
+        {!content.storage_path && (
+          <p className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+            <TriangleAlert size={14} />
+            עדיין לא הועלה קובץ -- לא יוצג באפליקציה עד שתעלו PDF
+          </p>
+        )}
         <FileUploader
           bucket="pdfs"
           currentPath={content.storage_path || undefined}
