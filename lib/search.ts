@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DataTableContent } from "@/lib/supabase/types";
 
 export interface SearchHit {
   sectionSlug: string;
@@ -53,6 +54,43 @@ function snippetFromContent(content: unknown, query: string): string | null {
     .replace(/[{}"[\]:,\\]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function isDataTableContent(content: unknown): content is DataTableContent {
+  const c = content as DataTableContent | null;
+  return !!c && Array.isArray(c.columns) && Array.isArray(c.categories);
+}
+
+// A data_table block (e.g. the lab-form index on "בדיקות חוץ") can pack
+// dozens of rows and long cell text into one block, so the generic
+// substring snippet above would show whatever unrelated text happens to
+// sit 30 characters away in the serialized JSON rather than anything
+// useful. Instead, find which row(s) actually contain the query and surface
+// their first column -- by convention a short row identifier (a form
+// number, a drug name, etc., see DataTableColumn order in
+// components/editor/DataTableEditor.tsx) -- so a hit like searching
+// "אלבומין" shows the matching form number (e.g. "T09") right in the
+// result instead of a meaningless snippet.
+function dataTableSnippet(content: DataTableContent, query: string): string | null {
+  const idKey = content.columns[0]?.key;
+  if (!idKey) return null;
+  const labelKey = content.columns[1]?.key;
+  const lowerQuery = query.toLowerCase();
+
+  const allRows = content.categories.flatMap((category) => [
+    ...category.rows,
+    ...category.subcategories.flatMap((sub) => sub.rows),
+  ]);
+
+  const matches = allRows
+    .filter((row) =>
+      Object.values(row.values).some((value) => value?.toLowerCase().includes(lowerQuery))
+    )
+    .map((row) => [row.values[idKey], labelKey ? row.values[labelKey] : null].filter(Boolean).join(" – "));
+
+  if (matches.length === 0) return null;
+  const shown = matches.slice(0, 4).join(" · ");
+  return matches.length > 4 ? `${shown} …` : shown;
 }
 
 // Matches drugs by their "searchable name" fields (generic name, trade
@@ -238,7 +276,10 @@ export async function searchContent(
     addHit(p.id, null, null);
   }
   for (const b of blockMatches) {
-    addHit(b.page_id, pageId ? b.id : null, snippetFromContent(b.content, query));
+    const snippet = isDataTableContent(b.content)
+      ? dataTableSnippet(b.content, query) ?? snippetFromContent(b.content, query)
+      : snippetFromContent(b.content, query);
+    addHit(b.page_id, pageId ? b.id : null, snippet);
   }
 
   return [...medicationHits, ...Array.from(hits.values())];
