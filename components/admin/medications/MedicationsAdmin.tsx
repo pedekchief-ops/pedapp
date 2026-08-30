@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { CategoryManager } from "./CategoryManager";
 import { FieldManager } from "./FieldManager";
+import { ImportPanel } from "./ImportPanel";
 import { MedicationsAdminList } from "./MedicationsAdminList";
 import type { MedicationCategory, MedicationField, MedicationWithCategories } from "@/lib/supabase/types";
 
-type Tab = "medications" | "categories" | "fields";
+type Tab = "medications" | "categories" | "fields" | "import";
 
 // Top-level admin screen for a 'medications'-type section: three
 // sub-panels (drugs / category tabs / field schema) switched with a
@@ -37,6 +38,9 @@ export function MedicationsAdmin({
         <TabButton active={tab === "fields"} onClick={() => setTab("fields")}>
           שדות ({fields.length})
         </TabButton>
+        <TabButton active={tab === "import"} onClick={() => setTab("import")}>
+          ייבוא מ-PDF
+        </TabButton>
       </div>
 
       {tab === "medications" && (
@@ -49,6 +53,9 @@ export function MedicationsAdmin({
       )}
       {tab === "categories" && <CategoryManager sectionSlug={sectionSlug} categories={categories} />}
       {tab === "fields" && <FieldManager sectionSlug={sectionSlug} fields={fields} />}
+      {tab === "import" && (
+        <ImportPanel sectionSlug={sectionSlug} fields={fields} categories={categories} />
+      )}
     </div>
   );
 }

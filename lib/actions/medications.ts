@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { MedicationFieldType, MedicationFieldValue } from "@/lib/supabase/types";
+import type { MedicationCategory, MedicationFieldType, MedicationFieldValue } from "@/lib/supabase/types";
 
 // Same authorization model as lib/actions/admin.ts: every call uses the
 // per-request client carrying the caller's own session, so Row Level
@@ -108,6 +108,11 @@ export async function moveMedicationField(sectionSlug: string, fieldId: string, 
 // Categories (the tabs shown at the top of the medications browser)
 // ---------------------------------------------------------------------------
 
+// Returns the created row (id) so callers that need to immediately link
+// something to this category -- e.g. the PDF import review screen, which
+// creates a category and attaches newly-imported drugs to it in the same
+// action -- don't have to re-fetch the list to find it. Existing callers
+// that don't need the id (CategoryManager.tsx) just ignore the return value.
 export async function createMedicationCategory(sectionSlug: string, name_he: string) {
   const supabase = await createClient();
   const { data: existing } = await supabase
@@ -117,11 +122,14 @@ export async function createMedicationCategory(sectionSlug: string, name_he: str
     .limit(1);
   const nextOrder = (existing?.[0]?.order_index ?? 0) + 1;
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("medication_categories")
-    .insert({ name_he, order_index: nextOrder });
+    .insert({ name_he, order_index: nextOrder })
+    .select()
+    .single();
   if (error) throw error;
   revalidateMedications(sectionSlug);
+  return data as MedicationCategory;
 }
 
 export async function updateMedicationCategory(sectionSlug: string, categoryId: string, name_he: string) {

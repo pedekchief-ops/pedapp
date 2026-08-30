@@ -98,7 +98,12 @@ export function MedicationForm({
   );
 }
 
-function FieldInput({
+// Exported so other admin screens that need a typed per-field-type input
+// outside a full MedicationForm (e.g. the PDF import review table in
+// ImportReview.tsx, which reviews many rows at once rather than one drug
+// with its own save/cancel) can reuse it instead of re-implementing the
+// per-field_type rendering.
+export function FieldInput({
   field,
   value,
   onChange,
