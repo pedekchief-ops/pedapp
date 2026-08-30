@@ -80,22 +80,36 @@ function PageViewContent({
   }
 
   return (
-    <article className="mx-auto max-w-2xl p-4">
-      <h1 className="mb-1 text-xl font-semibold text-neutral-900 dark:text-neutral-50">
-        {page.title_he}
-      </h1>
-      <p className="mb-6 text-xs text-neutral-500 dark:text-neutral-400">
-        עודכן לאחרונה {new Date(page.updated_at).toLocaleDateString("he-IL")}
-        {page.editorName && ` על ידי ${page.editorName}`}
-      </p>
+    <article className="mx-auto max-w-4xl p-4">
+      <div className="mx-auto max-w-2xl">
+        <h1 className="mb-1 text-xl font-semibold text-neutral-900 dark:text-neutral-50">
+          {page.title_he}
+        </h1>
+        <p className="mb-6 text-xs text-neutral-500 dark:text-neutral-400">
+          עודכן לאחרונה {new Date(page.updated_at).toLocaleDateString("he-IL")}
+          {page.editorName && ` על ידי ${page.editorName}`}
+        </p>
+      </div>
       <div className="flex flex-col gap-6">
-        {page.blocks.map((block) => (
-          // id target for search-result deep links (#block-<id>), see the
-          // scrollIntoView call above and components/search/SearchOverlay.tsx.
-          <div key={block.id} id={`block-${block.id}`}>
-            <BlockRenderer block={block} />
-          </div>
-        ))}
+        {page.blocks.map((block) => {
+          // Rich text/images/links/tabs stay at reading width (max-w-2xl,
+          // matching the header above) since a wide line of prose is hard
+          // to read -- but a PDF viewer or a data table benefits from real
+          // width instead, so those two block types get the full width of
+          // this wider article instead of the narrower reading column.
+          const isWide = block.type === "pdf" || block.type === "data_table";
+          return (
+            // id target for search-result deep links (#block-<id>), see the
+            // scrollIntoView call above and components/search/SearchOverlay.tsx.
+            <div
+              key={block.id}
+              id={`block-${block.id}`}
+              className={isWide ? "" : "mx-auto w-full max-w-2xl"}
+            >
+              <BlockRenderer block={block} />
+            </div>
+          );
+        })}
       </div>
     </article>
   );
