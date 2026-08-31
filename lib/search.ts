@@ -8,8 +8,11 @@ export interface SearchHit {
   pageSlug: string | null;
   // For a medication hit, this is the drug's display name instead of a page title.
   pageTitleHe: string;
-  // Set only for page-scoped search -- lets the UI list/jump to each
-  // individual matching block rather than just the page as a whole.
+  // Null only when nothing about a specific block matched (a title-only
+  // match, or a medication hit). Otherwise a deep-link target: a
+  // page-scoped search gets one hit per matching block, while a broader
+  // search still carries the first matching block on that page so clicking
+  // the result can jump straight to it instead of just the page's top.
   blockId: string | null;
   // Set only for a medication hit -- lets the UI deep-link into the
   // medications browser (see components/medications/MedicationsBrowser.tsx's
@@ -254,12 +257,26 @@ export async function searchContent(
 
   const hits = new Map<string, SearchHit>();
 
-  function addHit(pageIdKey: string, blockId: string | null, snippet: string | null) {
+  // dedupeByBlock: page-scoped search wants one row per matching block (so
+  // the UI can list/jump to each individually -- see SearchHit's doc
+  // comment); a broader search collapses every match on the same page down
+  // to one row, but that row still carries a real blockId (the first match
+  // found) rather than null -- otherwise clicking a broad-search result
+  // could only ever land on the top of the page, never on the specific
+  // block that actually matched (e.g. a collapsed block further down --
+  // see BlockRenderer.tsx's collapsible wrapper and the hash-based
+  // auto-open in app/(resident)/[sectionSlug]/[pageSlug]/page.tsx).
+  function addHit(
+    pageIdKey: string,
+    blockId: string | null,
+    snippet: string | null,
+    dedupeByBlock: boolean
+  ) {
     const page = pagesById.get(pageIdKey);
     if (!page) return;
     const section = sectionsById.get(page.section_id);
     if (!section) return;
-    const key = blockId ? `${pageIdKey}:${blockId}` : pageIdKey;
+    const key = dedupeByBlock && blockId ? `${pageIdKey}:${blockId}` : pageIdKey;
     if (hits.has(key)) return;
     hits.set(key, {
       sectionSlug: section.slug,
@@ -272,14 +289,18 @@ export async function searchContent(
     });
   }
 
-  for (const p of titleMatches) {
-    addHit(p.id, null, null);
-  }
+  // Block matches processed before title matches so a page whose title
+  // *and* content both match the query keeps the block-derived hit (which
+  // has a real blockId and a useful snippet) instead of a title-only one
+  // (blockId null, no deep link) claiming the page's dedup key first.
   for (const b of blockMatches) {
     const snippet = isDataTableContent(b.content)
       ? dataTableSnippet(b.content, query) ?? snippetFromContent(b.content, query)
       : snippetFromContent(b.content, query);
-    addHit(b.page_id, pageId ? b.id : null, snippet);
+    addHit(b.page_id, b.id, snippet, !!pageId);
+  }
+  for (const p of titleMatches) {
+    addHit(p.id, null, null, !!pageId);
   }
 
   return [...medicationHits, ...Array.from(hits.values())];

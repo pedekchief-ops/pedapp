@@ -51,9 +51,16 @@ function PageViewContent({
           // matching block actually exists in the DOM.
           if (window.location.hash) {
             requestAnimationFrame(() => {
-              document
-                .getElementById(window.location.hash.slice(1))
-                ?.scrollIntoView({ behavior: "smooth", block: "center" });
+              const target = document.getElementById(window.location.hash.slice(1));
+              if (!target) return;
+              // A collapsible block (see BlockRenderer.tsx) that defaults
+              // closed would otherwise scroll into view still collapsed --
+              // a search result landing on it must actually show the match,
+              // not just the closed toggle it's hiding behind.
+              target.querySelectorAll("details").forEach((details) => {
+                details.open = true;
+              });
+              target.scrollIntoView({ behavior: "smooth", block: "center" });
             });
           }
         }
