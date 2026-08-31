@@ -56,10 +56,18 @@ function PageViewContent({
               // A collapsible block (see BlockRenderer.tsx) that defaults
               // closed would otherwise scroll into view still collapsed --
               // a search result landing on it must actually show the match,
-              // not just the closed toggle it's hiding behind.
+              // not just the closed toggle it's hiding behind. Opens both
+              // ways: descendants (the block itself is collapsible) and
+              // ancestors (it's nested inside some other collapsible
+              // container, e.g. a collapsible tabs_container -- see
+              // TabsBlock.tsx for the separate "pick the right tab" half of
+              // making nested content reachable).
               target.querySelectorAll("details").forEach((details) => {
                 details.open = true;
               });
+              for (let el = target.parentElement; el; el = el.parentElement) {
+                if (el instanceof HTMLDetailsElement) el.open = true;
+              }
               target.scrollIntoView({ behavior: "smooth", block: "center" });
             });
           }
@@ -105,14 +113,13 @@ function PageViewContent({
           // width instead, so those two block types get the full width of
           // this wider article instead of the narrower reading column.
           const isWide = block.type === "pdf" || block.type === "data_table";
+          // The id="block-<id>" target for search-result deep links (see
+          // the scrollIntoView effect above) is BlockRenderer's own outer
+          // div now, not this one -- it has to be, so a block nested
+          // inside a tabs_container gets one too, not just top-level
+          // blocks. This div is purely the reading-width constraint.
           return (
-            // id target for search-result deep links (#block-<id>), see the
-            // scrollIntoView call above and components/search/SearchOverlay.tsx.
-            <div
-              key={block.id}
-              id={`block-${block.id}`}
-              className={isWide ? "" : "mx-auto w-full max-w-2xl"}
-            >
+            <div key={block.id} className={isWide ? "" : "mx-auto w-full max-w-2xl"}>
               <BlockRenderer block={block} />
             </div>
           );

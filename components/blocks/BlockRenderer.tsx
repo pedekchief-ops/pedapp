@@ -43,11 +43,22 @@ function defaultCollapsibleLabel(block: BlockNode): string {
 // Pure dispatch by block.type -- no data fetching of its own, so it's safe
 // to render from any client-rendered tree (the resident page view, or
 // TabsBlock recursing into its children).
+//
+// Every block gets its own id="block-<id>" wrapper here -- not just
+// top-level ones -- so a search-result deep link (#block-<id>, see
+// SearchOverlay.tsx / lib/search.ts) can find *any* block, including one
+// nested inside a tabs_container's tab. TabsBlock is responsible for
+// making sure the right tab is already active before that lookup runs
+// (see its own file) -- this component only has to guarantee the element
+// exists and, if this block itself is collapsible, that scrolling to it
+// opens it (see the hash-handling effect in
+// app/(resident)/[sectionSlug]/[pageSlug]/page.tsx).
 export function BlockRenderer({ block }: { block: BlockNode }) {
   const content = renderBlockContent(block);
-  if (!block.collapsible) return content;
 
-  return (
+  const inner = !block.collapsible ? (
+    content
+  ) : (
     <details open={!block.default_collapsed} className="group">
       <summary className="flex cursor-pointer list-none items-center gap-2 rounded-xl border border-neutral-200 px-4 py-2.5 text-sm font-medium text-neutral-900 [&::-webkit-details-marker]:hidden dark:border-neutral-800 dark:text-neutral-50">
         <ChevronDown size={16} className="shrink-0 text-neutral-400 transition-transform group-open:-rotate-180" />
@@ -56,6 +67,8 @@ export function BlockRenderer({ block }: { block: BlockNode }) {
       <div className="pt-3">{content}</div>
     </details>
   );
+
+  return <div id={`block-${block.id}`}>{inner}</div>;
 }
 
 function renderBlockContent(block: BlockNode) {
