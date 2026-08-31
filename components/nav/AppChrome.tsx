@@ -80,8 +80,11 @@ export function AppChrome({
           {/* Panel: anchored to the logical "start" edge, which is the right
               edge in our RTL-only layout (see the accompanying note in
               app/globals.css about why translate-x is used directly rather
-              than a logical transform utility). */}
-          <div className="absolute inset-y-0 start-0 flex w-72 max-w-[80vw] flex-col gap-1 bg-white p-4 shadow-xl dark:bg-neutral-900">
+              than a logical transform utility). overflow-y-auto matters on
+              a short phone screen: the sign-in/sign-out link is pushed to
+              the bottom via mt-auto, and without it that link could sit
+              below the visible viewport with no way to scroll down to it. */}
+          <div className="absolute inset-y-0 start-0 flex w-72 max-w-[80vw] flex-col gap-1 overflow-y-auto bg-white p-4 shadow-xl dark:bg-neutral-900">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
                 {isRealAccount ? profile?.full_name || "תפריט" : "תפריט"}
