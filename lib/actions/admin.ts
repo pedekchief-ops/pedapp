@@ -18,15 +18,51 @@ export async function createPage(sectionId: string, sectionSlug: string) {
   const supabase = await createClient();
   const slug = `page-${Date.now().toString(36)}`;
 
+  const { data: existing } = await supabase
+    .from("pages")
+    .select("order_index")
+    .eq("section_id", sectionId)
+    .order("order_index", { ascending: false })
+    .limit(1);
+  const nextOrder = (existing?.[0]?.order_index ?? -1) + 1;
+
   const { data: page, error } = await supabase
     .from("pages")
-    .insert({ section_id: sectionId, slug, title_he: "עמוד חדש", title_en: null })
+    .insert({ section_id: sectionId, slug, title_he: "עמוד חדש", title_en: null, order_index: nextOrder })
     .select()
     .single();
   if (error) throw error;
 
   revalidatePath(`/admin/${sectionSlug}`);
   redirect(`/admin/${sectionSlug}/${page.slug}/edit`);
+}
+
+// Swaps a page's order_index with its neighbor -- same pattern as
+// moveSection / moveMedicationCategory / moveMedicationField. Relies on
+// every page in the section already having a distinct order_index, which
+// the 0010 migration backfilled (createPage above didn't set one at all
+// before that migration, so most pre-existing pages shared the column's
+// default value).
+export async function movePage(pageId: string, sectionId: string, sectionSlug: string, direction: -1 | 1) {
+  const supabase = await createClient();
+  const { data: pages, error } = await supabase
+    .from("pages")
+    .select("id, order_index")
+    .eq("section_id", sectionId)
+    .order("order_index", { ascending: true });
+  if (error) throw error;
+
+  const index = (pages ?? []).findIndex((p: { id: string }) => p.id === pageId);
+  const targetIndex = index + direction;
+  if (index === -1 || targetIndex < 0 || targetIndex >= (pages ?? []).length) return;
+
+  const a = pages![index];
+  const b = pages![targetIndex];
+  await Promise.all([
+    supabase.from("pages").update({ order_index: b.order_index }).eq("id", a.id),
+    supabase.from("pages").update({ order_index: a.order_index }).eq("id", b.id),
+  ]);
+  revalidatePath(`/admin/${sectionSlug}`);
 }
 
 export async function deletePage(pageId: string, sectionSlug: string) {
@@ -221,6 +257,9 @@ function flattenDrafts(
       type: draft.type,
       order_index: index,
       content: draft.content,
+      collapsible: draft.collapsible,
+      default_collapsed: draft.default_collapsed,
+      collapsible_label: draft.collapsible_label,
     };
     return [row, ...flattenDrafts(draft.children, pageId, id)];
   });

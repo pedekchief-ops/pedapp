@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition, useState } from "react";
 import Link from "next/link";
-import { Pencil, FolderInput } from "lucide-react";
-import { bulkDeletePages, movePagesToSection } from "@/lib/actions/admin";
+import { ArrowDown, ArrowUp, Pencil, FolderInput } from "lucide-react";
+import { bulkDeletePages, movePage, movePagesToSection } from "@/lib/actions/admin";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
 import { DeletePageButton } from "@/components/admin/DeletePageButton";
@@ -49,6 +49,12 @@ export function PagesListWithSelection({
       await bulkDeletePages(ids, section.slug);
       setSelected(new Set());
       showToast(`${ids.length} עמודים נמחקו`);
+    });
+  }
+
+  function handleReorder(pageId: string, direction: -1 | 1) {
+    startTransition(async () => {
+      await movePage(pageId, section.id, section.slug, direction);
     });
   }
 
@@ -112,7 +118,7 @@ export function PagesListWithSelection({
         <p className="text-sm text-neutral-500 dark:text-neutral-400">אין עדיין עמודים.</p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {pages.map((page) => (
+          {pages.map((page, index) => (
             <li
               key={page.id}
               className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900"
@@ -131,6 +137,24 @@ export function PagesListWithSelection({
                 <Pencil size={14} className="text-neutral-400" />
                 {page.title_he}
               </Link>
+              <button
+                type="button"
+                disabled={pending || index === 0}
+                onClick={() => handleReorder(page.id, -1)}
+                aria-label={`הזזת "${page.title_he}" למעלה`}
+                className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800"
+              >
+                <ArrowUp size={14} />
+              </button>
+              <button
+                type="button"
+                disabled={pending || index === pages.length - 1}
+                onClick={() => handleReorder(page.id, 1)}
+                aria-label={`הזזת "${page.title_he}" למטה`}
+                className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800"
+              >
+                <ArrowDown size={14} />
+              </button>
               <DeletePageButton pageId={page.id} sectionSlug={section.slug} pageTitle={page.title_he} />
             </li>
           ))}

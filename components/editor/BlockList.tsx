@@ -68,33 +68,70 @@ export function BlockList({
           key={block.clientId}
           className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900"
         >
-          <div className="mb-2 flex items-center justify-end gap-1">
-            <button
-              type="button"
-              disabled={index === 0}
-              onClick={() => move(index, -1)}
-              aria-label="הזזה למעלה"
-              className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800"
-            >
-              <ArrowUp size={14} />
-            </button>
-            <button
-              type="button"
-              disabled={index === blocks.length - 1}
-              onClick={() => move(index, 1)}
-              aria-label="הזזה למטה"
-              className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800"
-            >
-              <ArrowDown size={14} />
-            </button>
-            <button
-              type="button"
-              onClick={() => removeAt(index)}
-              aria-label="מחיקת בלוק"
-              className="rounded-md p-1 text-neutral-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
-            >
-              <Trash2 size={14} />
-            </button>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+                <input
+                  type="checkbox"
+                  checked={block.collapsible}
+                  onChange={(e) => updateAt(index, { ...block, collapsible: e.target.checked })}
+                  className="h-3.5 w-3.5"
+                />
+                ניתן לכיווץ
+              </label>
+              {block.collapsible && (
+                <>
+                  <input
+                    type="text"
+                    placeholder="כותרת (למשל: שם הקובץ)"
+                    value={block.collapsible_label ?? ""}
+                    onChange={(e) =>
+                      updateAt(index, { ...block, collapsible_label: e.target.value || null })
+                    }
+                    className="w-40 rounded-lg border border-neutral-300 px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-950"
+                  />
+                  <label className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+                    <input
+                      type="checkbox"
+                      checked={block.default_collapsed}
+                      onChange={(e) =>
+                        updateAt(index, { ...block, default_collapsed: e.target.checked })
+                      }
+                      className="h-3.5 w-3.5"
+                    />
+                    מכווץ כברירת מחדל
+                  </label>
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={index === 0}
+                onClick={() => move(index, -1)}
+                aria-label="הזזה למעלה"
+                className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800"
+              >
+                <ArrowUp size={14} />
+              </button>
+              <button
+                type="button"
+                disabled={index === blocks.length - 1}
+                onClick={() => move(index, 1)}
+                aria-label="הזזה למטה"
+                className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800"
+              >
+                <ArrowDown size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => removeAt(index)}
+                aria-label="מחיקת בלוק"
+                className="rounded-md p-1 text-neutral-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
           </div>
           <BlockEditor block={block} onChange={(updated) => updateAt(index, updated)} />
         </div>

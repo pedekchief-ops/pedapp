@@ -143,6 +143,10 @@ export type BlockContent =
   | LinkButtonContent
   | DataTableContent;
 
+// collapsible/default_collapsed/collapsible_label -- see
+// supabase/migrations/0010_block_collapsible_and_page_order.sql. Lets an
+// admin make any block (a data_table, a pdf, ...) start open or closed
+// behind a toggle, independent of block type.
 export interface Block {
   id: string;
   page_id: string;
@@ -151,6 +155,9 @@ export interface Block {
   type: BlockType;
   order_index: number;
   content: BlockContent;
+  collapsible: boolean;
+  default_collapsed: boolean;
+  collapsible_label: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -199,6 +206,9 @@ export interface BlockDraft {
   type: BlockType;
   content: BlockContent;
   tab_key?: string | null;
+  collapsible: boolean;
+  default_collapsed: boolean;
+  collapsible_label: string | null;
   children: BlockDraft[];
 }
 

@@ -5,7 +5,14 @@ import type { BlockDraft, BlockNode, BlockType } from "@/lib/supabase/types";
 // tabs_container (see components/editor/TabsBlockEditor.tsx).
 export function createEmptyBlock(type: BlockType, tabKey: string | null = null): BlockDraft {
   const clientId = crypto.randomUUID();
-  const base = { clientId, tab_key: tabKey, children: [] as BlockDraft[] };
+  const base = {
+    clientId,
+    tab_key: tabKey,
+    collapsible: false,
+    default_collapsed: false,
+    collapsible_label: null,
+    children: [] as BlockDraft[],
+  };
 
   switch (type) {
     case "rich_text":
@@ -48,6 +55,9 @@ export function blockNodeToDraft(node: BlockNode): BlockDraft {
     type: node.type,
     content: node.content,
     tab_key: node.tab_key,
+    collapsible: node.collapsible,
+    default_collapsed: node.default_collapsed,
+    collapsible_label: node.collapsible_label,
     children: node.children.map(blockNodeToDraft),
   };
 }
