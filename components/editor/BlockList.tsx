@@ -14,6 +14,7 @@ import {
 import { createEmptyBlock } from "@/lib/editor/blockDraft";
 import type { BlockDraft, BlockType } from "@/lib/supabase/types";
 import { BlockEditor } from "./BlockEditor";
+import { BulkFileUploader } from "./BulkFileUploader";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 
 // Renders an ordered, editable list of blocks with add/reorder/delete
@@ -137,13 +138,14 @@ export function BlockList({
         </div>
       ))}
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-start gap-2">
         <AddButton icon={<Type size={14} />} label="טקסט" onClick={() => addBlock("rich_text")} />
         <AddButton icon={<ImageIcon size={14} />} label="תמונה" onClick={() => addBlock("image")} />
         <AddButton icon={<FileText size={14} />} label="PDF" onClick={() => addBlock("pdf")} />
         <AddButton icon={<Columns size={14} />} label="טאבים" onClick={() => addBlock("tabs_container")} />
         <AddButton icon={<LinkIcon size={14} />} label="כפתור קישור" onClick={() => addBlock("link_button")} />
         <AddButton icon={<Table size={14} />} label="טבלה" onClick={() => addBlock("data_table")} />
+        <BulkFileUploader tabKey={tabKey} onBlocksReady={(drafts) => onChange([...blocks, ...drafts])} />
       </div>
       {dialog}
     </div>

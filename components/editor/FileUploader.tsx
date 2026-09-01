@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Upload, FileText, Image as ImageIcon } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { uploadFileToStorage } from "@/lib/editor/uploadFile";
 import { getPublicUrl } from "@/lib/supabase/storage";
 import type { StorageBucket } from "@/lib/supabase/storage";
 
@@ -31,47 +31,14 @@ export function FileUploader({
   async function handleFile(file: File) {
     setUploading(true);
     setError(null);
-    const supabase = createClient();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    // The storage *key* must always be a plain ASCII path -- Supabase
-    // Storage rejects uploads whose key contains non-ASCII characters
-    // (Hebrew filenames), spaces, or other punctuation with an "Invalid
-    // key" error. The original name (Hebrew, spaces, whatever) is real
-    // and worth keeping, so it's passed back separately via `filename` for
-    // display/download instead of being baked into the key.
-    const dotIndex = file.name.lastIndexOf(".");
-    const rawExtension = dotIndex > -1 ? file.name.slice(dotIndex) : "";
-    const safeExtension = rawExtension.replace(/[^a-zA-Z0-9.]/g, "");
-    const path = `${crypto.randomUUID()}${safeExtension}`;
-
-    const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file);
-    if (uploadError) {
+    try {
+      const result = await uploadFileToStorage(bucket, file);
+      onUploaded(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "שגיאה בהעלאה");
+    } finally {
       setUploading(false);
-      setError(uploadError.message);
-      return;
     }
-
-    const { data: fileRow, error: insertError } = await supabase
-      .from("files")
-      .insert({
-        type: bucket === "images" ? "image" : "pdf",
-        storage_path: path,
-        uploaded_by: user?.id,
-      })
-      .select()
-      .single();
-
-    setUploading(false);
-    if (insertError || !fileRow) {
-      setError(insertError?.message ?? "שגיאה בשמירת הקובץ");
-      return;
-    }
-
-    onUploaded({ fileId: fileRow.id, storagePath: path, filename: file.name });
   }
 
   return (
