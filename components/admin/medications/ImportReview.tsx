@@ -15,6 +15,10 @@ interface Row {
   localId: string;
   included: boolean;
   values: Record<string, MedicationFieldValue>;
+  // The row as printed in the source (see ExtractedDrug.source_excerpt) --
+  // shown read-only next to the editable fields so the admin can compare
+  // without reopening the source file. Never sent to saveMedication.
+  sourceExcerpt: string;
 }
 
 // Everything extracted from the PDF (lib/actions/medication-import.ts) is
@@ -49,7 +53,7 @@ export function ImportReview({
       )
   );
 
-  const suggestedDefaultCategoryName = sourceFilename.replace(/\.pdf$/i, "").trim();
+  const suggestedDefaultCategoryName = sourceFilename.replace(/\.(pdf|jpe?g|png|gif|webp)$/i, "").trim();
   const [categoryMode, setCategoryMode] = useState<"existing" | "new" | "none">(
     categories.length > 0 ? "existing" : "new"
   );
@@ -61,6 +65,7 @@ export function ImportReview({
       localId: crypto.randomUUID(),
       included: true,
       values: { ...drug.values, generic_name: drug.generic_name } as Record<string, MedicationFieldValue>,
+      sourceExcerpt: drug.source_excerpt,
     }))
   );
 
@@ -295,6 +300,12 @@ export function ImportReview({
                   <X size={14} />
                 </button>
               </div>
+              {row.sourceExcerpt && (
+                <p className="mb-2 rounded-lg bg-neutral-50 px-3 py-2 text-xs leading-relaxed text-neutral-500 dark:bg-neutral-950 dark:text-neutral-400">
+                  <span className="font-medium text-neutral-600 dark:text-neutral-300">כפי שמופיע במקור: </span>
+                  {row.sourceExcerpt}
+                </p>
+              )}
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {fieldsForForm.map((field) => (
                   <div key={field.id} className="flex flex-col gap-1">

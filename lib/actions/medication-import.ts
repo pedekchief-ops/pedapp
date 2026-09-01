@@ -4,11 +4,12 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import type { MedicationFieldType } from "@/lib/supabase/types";
 
-// AI-assisted extraction of a dosing PDF into rows matching the medications
-// schema (see lib/supabase/types.ts: MedicationField / medications.values).
-// Every source PDF has a different column layout (some have no notes
-// column, some have renal-adjustment or product-composition columns that
-// don't apply to most drugs), so this maps to the *existing*
+// AI-assisted extraction of a dosing table (PDF or photo/scan image) into
+// rows matching the medications schema (see lib/supabase/types.ts:
+// MedicationField / medications.values). Every source document has a
+// different column layout (some have no notes column, some have
+// renal-adjustment or product-composition columns that don't apply to most
+// drugs), so this maps to the *existing*
 // admin-configurable field set where possible and proposes new fields for
 // anything genuinely uncovered -- see the plan at
 // /Users/nadav/.claude/plans/mossy-tickling-fairy.md. Nothing here writes
@@ -33,6 +34,11 @@ export type ExtractedValue =
 export interface ExtractedDrug {
   generic_name: string;
   values: Record<string, ExtractedValue>;
+  // The row transcribed as printed in the source, so an admin can compare
+  // it side-by-side against the structured values above without reopening
+  // the source file -- see ImportReview.tsx. Deliberately a literal
+  // transcription, not a re-derived summary (that's what "notes" is for).
+  source_excerpt: string;
 }
 
 export interface ExtractionResult {
@@ -75,7 +81,7 @@ function buildToolSchema() {
   return {
     name: EXTRACTION_TOOL_NAME,
     description:
-      "Records every drug row extracted from the dosing table PDF, mapped to the existing medication field schema plus any newly proposed fields.",
+      "Records every drug row extracted from the dosing table document, mapped to the existing medication field schema plus any newly proposed fields.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -117,8 +123,13 @@ function buildToolSchema() {
                   "Keys are either an existing field's key or one of suggested_new_fields' keys.",
                 additionalProperties: valueSchema,
               },
+              source_excerpt: {
+                type: "string",
+                description:
+                  "This row transcribed exactly as printed in the source (literal wording/numbers/order, not reformatted or summarized) -- lets a human reviewer compare the structured values above against the original text.",
+              },
             },
-            required: ["generic_name", "values"],
+            required: ["generic_name", "values", "source_excerpt"],
             additionalProperties: false,
           },
         },
@@ -142,7 +153,7 @@ function buildPrompt(existingFields: ExistingField[]) {
     })
     .join("\n");
 
-  return `You are extracting a pediatric medication dosing table from a PDF (Hebrew/English mixed, RTL layout) into structured data for a medical reference app.
+  return `You are extracting a pediatric medication dosing table from a document (a PDF, or a photo/scan of a printed table -- Hebrew/English mixed, RTL layout) into structured data for a medical reference app.
 
 Existing field schema (map to these first -- only propose a new field in suggested_new_fields when nothing here fits):
 ${fieldsDescription}
@@ -155,13 +166,51 @@ Rules:
 5. Only propose a new field (suggested_new_fields) for data that is genuinely structured and recurs across multiple rows in this table (e.g. a Yes/No renal-adjustment column, a percent-elemental-iron column). Do not propose a new field for a one-off aside -- put that in notes instead.
 6. General prose in the document that isn't about one specific drug (e.g. a paragraph below the table about typical treatment duration, a references list) goes in "document_notes", not attached to any row.
 7. Preserve the original Hebrew/English text as printed -- do not translate drug names or clinical terms.
+8. "source_excerpt" is a literal transcription of the row, not a summary -- copy the wording/numbers/order as printed. This is what lets a human reviewer catch a transcription mistake by comparing it against the structured fields, so it must stand on its own even if the structured extraction above it is wrong.
 
 Call the ${EXTRACTION_TOOL_NAME} tool exactly once with the complete extraction.`;
 }
 
-export async function extractMedicationsFromPdf(
+const IMAGE_MEDIA_TYPES: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  gif: "image/gif",
+  webp: "image/webp",
+};
+
+// Claude reads a photo of a dosing table the same way it reads a PDF one --
+// same API, same key, no extra setup -- so this accepts either. The only
+// real difference is which content-block shape the Messages API wants
+// (document vs. image) and, for an image, which exact media_type.
+function buildSourceContentBlock(
+  bucket: "pdfs" | "images",
+  storagePath: string,
+  base64: string
+): Anthropic.Messages.ContentBlockParam {
+  if (bucket === "pdfs") {
+    return {
+      type: "document",
+      source: { type: "base64", media_type: "application/pdf", data: base64 },
+    };
+  }
+  const extension = storagePath.split(".").pop()?.toLowerCase() ?? "";
+  const mediaType = IMAGE_MEDIA_TYPES[extension];
+  if (!mediaType) {
+    throw new Error(
+      `Unsupported image type ".${extension}" -- use jpg, png, gif, or webp.`
+    );
+  }
+  return {
+    type: "image",
+    source: { type: "base64", media_type: mediaType as "image/jpeg", data: base64 },
+  };
+}
+
+export async function extractMedicationsFromFile(
   sectionSlug: string,
-  storagePath: string
+  storagePath: string,
+  bucket: "pdfs" | "images"
 ): Promise<ExtractionResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -172,19 +221,29 @@ export async function extractMedicationsFromPdf(
 
   const supabase = await createClient();
 
-  const [{ data: pdfBlob, error: downloadError }, { data: fieldsData, error: fieldsError }] =
+  const [{ data: fileBlob, error: downloadError }, { data: fieldsData, error: fieldsError }] =
     await Promise.all([
-      supabase.storage.from("pdfs").download(storagePath),
+      supabase.storage.from(bucket).download(storagePath),
       supabase
         .from("medication_fields")
         .select("key, label_he, field_type, options")
         .order("order_index", { ascending: true }),
     ]);
   if (downloadError) throw downloadError;
-  if (!pdfBlob) throw new Error(`Could not download ${storagePath} from the pdfs bucket.`);
+  if (!fileBlob) throw new Error(`Could not download ${storagePath} from the ${bucket} bucket.`);
   if (fieldsError) throw fieldsError;
 
-  const pdfBase64 = Buffer.from(await pdfBlob.arrayBuffer()).toString("base64");
+  // Anthropic's per-image size limit (well under this) will reject an
+  // oversized photo with its own clear error anyway, but this catches the
+  // common case (a multi-MB phone photo) with a message that actually says
+  // what to do about it, rather than a cryptic API error.
+  if (bucket === "images" && fileBlob.size > 10 * 1024 * 1024) {
+    throw new Error(
+      "התמונה גדולה מדי (מעל 10MB) -- נסה לצלם/לייצא ברזולוציה נמוכה יותר."
+    );
+  }
+
+  const fileBase64 = Buffer.from(await fileBlob.arrayBuffer()).toString("base64");
   const existingFields = (fieldsData ?? []) as ExistingField[];
 
   const anthropic = new Anthropic({ apiKey });
@@ -199,10 +258,7 @@ export async function extractMedicationsFromPdf(
       {
         role: "user",
         content: [
-          {
-            type: "document",
-            source: { type: "base64", media_type: "application/pdf", data: pdfBase64 },
-          },
+          buildSourceContentBlock(bucket, storagePath, fileBase64),
           { type: "text", text: buildPrompt(existingFields) },
         ],
       },
