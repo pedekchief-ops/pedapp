@@ -48,6 +48,10 @@ export interface Section {
   created_at: string;
 }
 
+// is_landing -- see supabase/migrations/0011_section_landing_page.sql. At
+// most one page per section has this set; that page's blocks render
+// directly on the section's own root page instead of requiring a click
+// through to a sub-page.
 export interface Page {
   id: string;
   section_id: string;
@@ -55,6 +59,7 @@ export interface Page {
   title_he: string;
   title_en: string | null;
   order_index: number;
+  is_landing: boolean;
   updated_by: string | null;
   updated_at: string;
   created_at: string;

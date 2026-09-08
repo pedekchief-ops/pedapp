@@ -2,8 +2,8 @@
 
 import { useTransition, useState } from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, Pencil, FolderInput } from "lucide-react";
-import { bulkDeletePages, movePage, movePagesToSection } from "@/lib/actions/admin";
+import { ArrowDown, ArrowUp, Pencil, FolderInput, Star } from "lucide-react";
+import { bulkDeletePages, movePage, movePagesToSection, setSectionLandingPage } from "@/lib/actions/admin";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
 import { DeletePageButton } from "@/components/admin/DeletePageButton";
@@ -55,6 +55,17 @@ export function PagesListWithSelection({
   function handleReorder(pageId: string, direction: -1 | 1) {
     startTransition(async () => {
       await movePage(pageId, section.id, section.slug, direction);
+    });
+  }
+
+  function handleToggleLanding(page: Page) {
+    startTransition(async () => {
+      await setSectionLandingPage(section.id, section.slug, page.is_landing ? null : page.id);
+      showToast(
+        page.is_landing
+          ? `"${page.title_he}" הוסר כתוכן הראשי של הקטגוריה`
+          : `"${page.title_he}" יוצג ישירות בכניסה לקטגוריה "${section.name_he}"`
+      );
     });
   }
 
@@ -117,48 +128,72 @@ export function PagesListWithSelection({
       {pages.length === 0 ? (
         <p className="text-sm text-neutral-500 dark:text-neutral-400">אין עדיין עמודים.</p>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {pages.map((page, index) => (
-            <li
-              key={page.id}
-              className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900"
-            >
-              <input
-                type="checkbox"
-                checked={selected.has(page.id)}
-                onChange={() => toggle(page.id)}
-                aria-label={`בחירת ${page.title_he}`}
-                className="h-4 w-4"
-              />
-              <Link
-                href={`/admin/${section.slug}/${page.slug}/edit`}
-                className="flex flex-1 items-center gap-2 text-sm font-medium text-neutral-900 dark:text-neutral-50"
+        <>
+          <p className="mb-2 text-xs text-neutral-500 dark:text-neutral-400">
+            סימון כוכב על עמוד מציג את התוכן שלו (קבצים/תמונות/טבלאות/קישורים) ישירות
+            בכניסה לקטגוריה, במקום רשימת עמודים בלבד.
+          </p>
+          <ul className="flex flex-col gap-2">
+            {pages.map((page, index) => (
+              <li
+                key={page.id}
+                className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900"
               >
-                <Pencil size={14} className="text-neutral-400" />
-                {page.title_he}
-              </Link>
-              <button
-                type="button"
-                disabled={pending || index === 0}
-                onClick={() => handleReorder(page.id, -1)}
-                aria-label={`הזזת "${page.title_he}" למעלה`}
-                className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800"
-              >
-                <ArrowUp size={14} />
-              </button>
-              <button
-                type="button"
-                disabled={pending || index === pages.length - 1}
-                onClick={() => handleReorder(page.id, 1)}
-                aria-label={`הזזת "${page.title_he}" למטה`}
-                className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800"
-              >
-                <ArrowDown size={14} />
-              </button>
-              <DeletePageButton pageId={page.id} sectionSlug={section.slug} pageTitle={page.title_he} />
-            </li>
-          ))}
-        </ul>
+                <input
+                  type="checkbox"
+                  checked={selected.has(page.id)}
+                  onChange={() => toggle(page.id)}
+                  aria-label={`בחירת ${page.title_he}`}
+                  className="h-4 w-4"
+                />
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => handleToggleLanding(page)}
+                  aria-label={
+                    page.is_landing
+                      ? `הסרת "${page.title_he}" כתוכן הראשי של הקטגוריה`
+                      : `הצגת "${page.title_he}" כתוכן הראשי של הקטגוריה`
+                  }
+                  title="הצגה ישירה בכניסה לקטגוריה"
+                  className={`rounded-md p-1 disabled:opacity-30 ${
+                    page.is_landing
+                      ? "text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40"
+                      : "text-neutral-300 hover:bg-neutral-100 dark:text-neutral-600 dark:hover:bg-neutral-800"
+                  }`}
+                >
+                  <Star size={16} fill={page.is_landing ? "currentColor" : "none"} />
+                </button>
+                <Link
+                  href={`/admin/${section.slug}/${page.slug}/edit`}
+                  className="flex flex-1 items-center gap-2 text-sm font-medium text-neutral-900 dark:text-neutral-50"
+                >
+                  <Pencil size={14} className="text-neutral-400" />
+                  {page.title_he}
+                </Link>
+                <button
+                  type="button"
+                  disabled={pending || index === 0}
+                  onClick={() => handleReorder(page.id, -1)}
+                  aria-label={`הזזת "${page.title_he}" למעלה`}
+                  className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800"
+                >
+                  <ArrowUp size={14} />
+                </button>
+                <button
+                  type="button"
+                  disabled={pending || index === pages.length - 1}
+                  onClick={() => handleReorder(page.id, 1)}
+                  aria-label={`הזזת "${page.title_he}" למטה`}
+                  className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800"
+                >
+                  <ArrowDown size={14} />
+                </button>
+                <DeletePageButton pageId={page.id} sectionSlug={section.slug} pageTitle={page.title_he} />
+              </li>
+            ))}
+          </ul>
+        </>
       )}
       {dialog}
     </div>

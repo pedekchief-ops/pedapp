@@ -65,6 +65,33 @@ export async function movePage(pageId: string, sectionId: string, sectionSlug: s
   revalidatePath(`/admin/${sectionSlug}`);
 }
 
+// Marks pageId as the section's landing page (its blocks render directly
+// on the section root, see app/(resident)/[sectionSlug]/page.tsx) --
+// pass pageId: null to clear it back to "no landing page" (the section
+// root just lists pages, like before this feature existed). Same
+// clear-then-set pattern as medication_fields.is_title's
+// setTitleMedicationField: at most one page per section can have this set.
+export async function setSectionLandingPage(
+  sectionId: string,
+  sectionSlug: string,
+  pageId: string | null
+) {
+  const supabase = await createClient();
+  const { error: clearError } = await supabase
+    .from("pages")
+    .update({ is_landing: false })
+    .eq("section_id", sectionId);
+  if (clearError) throw clearError;
+
+  if (pageId) {
+    const { error } = await supabase.from("pages").update({ is_landing: true }).eq("id", pageId);
+    if (error) throw error;
+  }
+
+  revalidatePath(`/admin/${sectionSlug}`);
+  revalidatePath(`/${sectionSlug}`);
+}
+
 export async function deletePage(pageId: string, sectionSlug: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("pages").delete().eq("id", pageId);

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Download } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Download, Maximize2, X } from "lucide-react";
 import { getPublicUrl } from "@/lib/supabase/storage";
 import { downloadFile } from "@/lib/download";
 import type { PdfContent } from "@/lib/supabase/types";
@@ -21,6 +21,25 @@ import type { PdfContent } from "@/lib/supabase/types";
 // broke the earlier react-pdf-based attempt.
 export function PdfBlock({ content }: { content: PdfContent }) {
   const [downloading, setDownloading] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  // On a phone, pinching over the embedded iframe is captured by the
+  // *outer page's* viewport zoom (a blunt raster scale-up of pixels
+  // already on screen) rather than reaching pdf.js's own zoom (which
+  // re-renders the page from vector data at the new scale, staying
+  // sharp) -- that's what makes the text look blurry. Full-screen mode
+  // sidesteps this by disabling the outer page's pinch-zoom only while
+  // it's open (restored the moment it closes), so a pinch gesture over
+  // the PDF has nowhere to go but into pdf.js's own zoom.
+  useEffect(() => {
+    if (!fullscreen) return;
+    const meta = document.querySelector('meta[name="viewport"]');
+    const original = meta?.getAttribute("content") ?? null;
+    meta?.setAttribute("content", "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no");
+    return () => {
+      if (original !== null) meta?.setAttribute("content", original);
+    };
+  }, [fullscreen]);
 
   // A block published without ever completing a file upload (see
   // components/editor/FileUploader.tsx) has an empty storage_path --
@@ -40,32 +59,63 @@ export function PdfBlock({ content }: { content: PdfContent }) {
     `/api/files/pdfs/${content.storage_path}`
   )}`;
 
+  async function handleDownload() {
+    setDownloading(true);
+    try {
+      await downloadFile(url, filename);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
-    <div className="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800">
-      <div className="flex items-center justify-between gap-2 border-b border-neutral-200 px-4 py-2 dark:border-neutral-800">
-        <span className="truncate text-sm font-medium text-neutral-700 dark:text-neutral-200">{title}</span>
-        <button
-          type="button"
-          aria-label="הורדת הקובץ"
-          disabled={downloading}
-          onClick={async () => {
-            setDownloading(true);
-            try {
-              await downloadFile(url, filename);
-            } finally {
-              setDownloading(false);
-            }
-          }}
-          className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 disabled:opacity-50 dark:text-neutral-400 dark:hover:bg-neutral-800"
-        >
-          <Download size={16} />
-        </button>
+    <>
+      <div className="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800">
+        <div className="flex items-center justify-between gap-2 border-b border-neutral-200 px-4 py-2 dark:border-neutral-800">
+          <span className="truncate text-sm font-medium text-neutral-700 dark:text-neutral-200">{title}</span>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              aria-label="הרחבה למסך מלא"
+              onClick={() => setFullscreen(true)}
+              className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+            >
+              <Maximize2 size={16} />
+            </button>
+            <button
+              type="button"
+              aria-label="הורדת הקובץ"
+              disabled={downloading}
+              onClick={handleDownload}
+              className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 disabled:opacity-50 dark:text-neutral-400 dark:hover:bg-neutral-800"
+            >
+              <Download size={16} />
+            </button>
+          </div>
+        </div>
+        <iframe
+          src={viewerUrl}
+          title={title}
+          className="h-[75vh] w-full bg-neutral-100 dark:bg-neutral-950"
+        />
       </div>
-      <iframe
-        src={viewerUrl}
-        title={title}
-        className="h-[75vh] w-full bg-neutral-100 dark:bg-neutral-950"
-      />
-    </div>
+
+      {fullscreen && (
+        <div className="fixed inset-0 z-[90] flex flex-col bg-neutral-950">
+          <div className="flex items-center justify-between gap-2 bg-neutral-900 px-3 py-2">
+            <span className="truncate text-sm font-medium text-neutral-100">{title}</span>
+            <button
+              type="button"
+              aria-label="סגירת מסך מלא"
+              onClick={() => setFullscreen(false)}
+              className="rounded-lg p-1.5 text-neutral-300 hover:bg-neutral-800"
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <iframe src={viewerUrl} title={title} className="flex-1 bg-neutral-100" />
+        </div>
+      )}
+    </>
   );
 }
