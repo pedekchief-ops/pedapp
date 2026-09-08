@@ -21,10 +21,16 @@ export function createEmptyBlock(type: BlockType, tabKey: string | null = null):
         type,
         content: { doc: { type: "doc", content: [{ type: "paragraph" }] } },
       };
+    // Images and PDFs default to collapsible (still open by default --
+    // default_collapsed stays false) so the admin only has to decide the
+    // starting state, not first discover and check a separate "ניתן
+    // לכיווץ" box every time. Other block types stay opt-in via `base`,
+    // since collapsing e.g. a short link button or a paragraph of text
+    // isn't a common need the way it is for a page full of files.
     case "image":
-      return { ...base, type, content: { file_id: "", storage_path: "" } };
+      return { ...base, collapsible: true, type, content: { file_id: "", storage_path: "" } };
     case "pdf":
-      return { ...base, type, content: { file_id: "", storage_path: "" } };
+      return { ...base, collapsible: true, type, content: { file_id: "", storage_path: "" } };
     case "tabs_container":
       return {
         ...base,
