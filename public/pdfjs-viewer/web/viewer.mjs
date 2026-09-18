@@ -781,7 +781,14 @@ const defaultOptions = {
     kind: OptionKind.VIEWER + OptionKind.PREFERENCE
   },
   enableScripting: {
-    value: true,
+    // Patched off (upstream default is true): a PDF can embed a JS
+    // OpenAction that fires window.print() the instant it loads -- a
+    // hospital-authored "print-ready" protocol PDF hit exactly this and
+    // popped a print dialog the moment a resident opened the page. This
+    // app only ever shows static reference PDFs, never interactive forms
+    // that need embedded-JS calculations, so disabling scripting entirely
+    // is a safe default rather than trying to allow-list "safe" actions.
+    value: false,
     kind: OptionKind.VIEWER + OptionKind.PREFERENCE
   },
   enableSignatureEditor: {
@@ -1530,7 +1537,7 @@ class BasePreferences {
     enableOptimizedPartialRendering: false,
     enablePermissions: false,
     enablePrintAutoRotate: true,
-    enableScripting: true,
+    enableScripting: false,
     enableSignatureEditor: false,
     enableUpdatedAddImage: false,
     externalLinkTarget: 0,
@@ -16998,31 +17005,18 @@ const PDFViewerApplication = {
     };
   },
   async _initializeAutoPrint(pdfDocument, openActionPromise) {
-    const [openAction, jsActions] = await Promise.all([openActionPromise, this.pdfViewer.enableScripting ? null : pdfDocument.getJSActions()]);
-    if (pdfDocument !== this.pdfDocument) {
-      return;
-    }
-    let triggerAutoPrint = openAction?.action === "Print";
-    if (jsActions) {
-      console.warn("Warning: JavaScript support is not enabled");
-      for (const name in jsActions) {
-        if (triggerAutoPrint) {
-          break;
-        }
-        switch (name) {
-          case "WillClose":
-          case "WillSave":
-          case "DidSave":
-          case "WillPrint":
-          case "DidPrint":
-            continue;
-        }
-        triggerAutoPrint = jsActions[name].some(js => AutoPrintRegExp.test(js));
-      }
-    }
-    if (triggerAutoPrint) {
-      this.triggerPrinting();
-    }
+    // Patched off entirely: this is pdf.js faithfully honoring a PDF's own
+    // /OpenAction of type "Print" (or an embedded WillOpen-style JS action
+    // matching AutoPrintRegExp) by calling window.print() the instant the
+    // document loads -- independent of enableScripting (see that option a
+    // few hundred lines up), since a plain Named "Print" action isn't
+    // JavaScript at all. A hospital-authored "print-ready" protocol PDF
+    // hit exactly this and popped a print dialog the moment a resident
+    // opened the page. Nothing in a reference app should ever auto-print
+    // on open, so this whole feature is disabled rather than trying to
+    // distinguish "trustworthy" auto-print PDFs from surprising ones.
+    void pdfDocument;
+    void openActionPromise;
   },
   async _initializeMetadata(pdfDocument) {
     const {

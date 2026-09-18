@@ -55,9 +55,14 @@ export function PdfBlock({ content }: { content: PdfContent }) {
   // proxy (app/api/files/pdfs/[...path]/route.ts) instead of the direct
   // Storage URL. The download button below still uses the direct URL --
   // that's a plain fetch(), not subject to the viewer's check.
+  // #zoom=page-width (a pdf.js viewer URL fragment, not a query param --
+  // it never reaches the server) makes the page scale to fill the
+  // viewer's actual width on load, instead of pdf.js's own "auto" default
+  // (which fits the whole page height and can render text uncomfortably
+  // small in a viewer this narrow, especially on a phone).
   const viewerUrl = `/pdfjs-viewer/web/viewer.html?file=${encodeURIComponent(
     `/api/files/pdfs/${content.storage_path}`
-  )}`;
+  )}#zoom=page-width`;
 
   async function handleDownload() {
     setDownloading(true);
