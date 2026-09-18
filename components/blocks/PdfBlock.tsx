@@ -101,7 +101,7 @@ export function PdfBlock({ content }: { content: PdfContent }) {
         <iframe
           src={viewerUrl}
           title={title}
-          className="h-[75vh] w-full bg-neutral-100 dark:bg-neutral-950"
+          className="h-[75dvh] w-full bg-neutral-100 dark:bg-neutral-950"
         />
       </div>
 
