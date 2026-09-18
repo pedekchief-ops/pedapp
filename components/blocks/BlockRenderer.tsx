@@ -20,13 +20,10 @@ import { DataTableBlock } from "./DataTableBlock";
 // Falls back to a block-type-appropriate label when the admin left
 // collapsible_label empty (see components/editor/BlockList.tsx) -- a
 // collapsed block still needs *some* visible text to identify what's
-// hidden behind it.
+// hidden behind it. Not used for "pdf" -- PdfBlock computes its own label,
+// see the comment on the pdf special-case below.
 function defaultCollapsibleLabel(block: BlockNode): string {
   switch (block.type) {
-    case "pdf": {
-      const content = block.content as PdfContent;
-      return content.title || content.original_filename || "קובץ PDF";
-    }
     case "data_table":
       return "טבלה";
     case "image":
@@ -54,6 +51,25 @@ function defaultCollapsibleLabel(block: BlockNode): string {
 // opens it (see the hash-handling effect in
 // app/(resident)/[sectionSlug]/[pageSlug]/page.tsx).
 export function BlockRenderer({ block }: { block: BlockNode }) {
+  // pdf gets its collapse toggle built into its own existing header
+  // (title + download/fullscreen buttons) instead of being wrapped in a
+  // second, separate summary on top of it -- wrapping produced two
+  // stacked bars that looked like two different things, and only the
+  // outer (plain, button-less) one was actually clickable to collapse.
+  // See PdfBlock.tsx's doc comment.
+  if (block.type === "pdf") {
+    return (
+      <div id={`block-${block.id}`}>
+        <PdfBlock
+          content={block.content as PdfContent}
+          collapsible={block.collapsible}
+          defaultCollapsed={block.default_collapsed}
+          label={block.collapsible_label}
+        />
+      </div>
+    );
+  }
+
   const content = renderBlockContent(block);
 
   const inner = !block.collapsible ? (
@@ -77,8 +93,6 @@ function renderBlockContent(block: BlockNode) {
       return <RichTextBlock content={block.content as RichTextContent} />;
     case "image":
       return <ImageBlock content={block.content as ImageContent} />;
-    case "pdf":
-      return <PdfBlock content={block.content as PdfContent} />;
     case "tabs_container":
       return (
         <TabsBlock

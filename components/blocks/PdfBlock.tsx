@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Download, Maximize2, X } from "lucide-react";
+import { ChevronDown, Download, Maximize2, X } from "lucide-react";
 import { getPublicUrl } from "@/lib/supabase/storage";
 import { downloadFile } from "@/lib/download";
 import type { PdfContent } from "@/lib/supabase/types";
@@ -19,7 +19,25 @@ import type { PdfContent } from "@/lib/supabase/types";
 // Because it's static files rather than something our own webpack build
 // processes, it also sidesteps the pdfjs-dist/webpack bundling crash that
 // broke the earlier react-pdf-based attempt.
-export function PdfBlock({ content }: { content: PdfContent }) {
+//
+// collapsible/defaultCollapsed/label: unlike every other block type, a PDF
+// already has its own header row (title + download/fullscreen buttons) --
+// BlockRenderer.tsx used to wrap that whole thing in a *second*, separate
+// collapse toggle on top, which produced two stacked bars that looked like
+// two different things, and only the outer (plain, button-less) one was
+// actually clickable to collapse. This block now owns a single unified
+// toggle built into its existing header instead, when collapsible is set.
+export function PdfBlock({
+  content,
+  collapsible = false,
+  defaultCollapsed = false,
+  label,
+}: {
+  content: PdfContent;
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
+  label?: string | null;
+}) {
   const [downloading, setDownloading] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
 
@@ -48,7 +66,7 @@ export function PdfBlock({ content }: { content: PdfContent }) {
 
   const url = getPublicUrl("pdfs", content.storage_path);
   const filename = content.original_filename || content.storage_path;
-  const title = content.title || filename;
+  const title = label?.trim() || content.title || filename;
   // pdf.js's viewer refuses to load a `file` whose origin doesn't match
   // its own (a built-in anti-proxy-abuse check) -- Supabase Storage is a
   // different origin, so the viewer is pointed at our own same-origin
@@ -73,36 +91,77 @@ export function PdfBlock({ content }: { content: PdfContent }) {
     }
   }
 
+  const actionButtons = (
+    <div className="flex shrink-0 items-center gap-1">
+      <button
+        type="button"
+        aria-label="הרחבה למסך מלא"
+        // Both buttons live inside <summary> when collapsible (so they
+        // share the header's single row) -- stopPropagation keeps a tap
+        // on them from also being read as "activate the summary" and
+        // toggling collapse as an unwanted side effect.
+        onClick={(e) => {
+          e.stopPropagation();
+          setFullscreen(true);
+        }}
+        className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+      >
+        <Maximize2 size={16} />
+      </button>
+      <button
+        type="button"
+        aria-label="הורדת הקובץ"
+        disabled={downloading}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleDownload();
+        }}
+        className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 disabled:opacity-50 dark:text-neutral-400 dark:hover:bg-neutral-800"
+      >
+        <Download size={16} />
+      </button>
+    </div>
+  );
+
+  const headerRow = (
+    <div className="flex items-center justify-between gap-2 border-b border-neutral-200 px-4 py-2 dark:border-neutral-800">
+      <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-200">
+        {collapsible && (
+          <ChevronDown
+            size={16}
+            className="shrink-0 text-neutral-400 transition-transform group-open:-rotate-180"
+          />
+        )}
+        <span className="truncate">{title}</span>
+      </span>
+      {actionButtons}
+    </div>
+  );
+
+  const viewer = (
+    <iframe
+      src={viewerUrl}
+      title={title}
+      className="h-[75dvh] w-full bg-neutral-100 dark:bg-neutral-950"
+    />
+  );
+
   return (
     <>
       <div className="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800">
-        <div className="flex items-center justify-between gap-2 border-b border-neutral-200 px-4 py-2 dark:border-neutral-800">
-          <span className="truncate text-sm font-medium text-neutral-700 dark:text-neutral-200">{title}</span>
-          <div className="flex shrink-0 items-center gap-1">
-            <button
-              type="button"
-              aria-label="הרחבה למסך מלא"
-              onClick={() => setFullscreen(true)}
-              className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
-            >
-              <Maximize2 size={16} />
-            </button>
-            <button
-              type="button"
-              aria-label="הורדת הקובץ"
-              disabled={downloading}
-              onClick={handleDownload}
-              className="rounded-lg p-1.5 text-neutral-500 hover:bg-neutral-100 disabled:opacity-50 dark:text-neutral-400 dark:hover:bg-neutral-800"
-            >
-              <Download size={16} />
-            </button>
-          </div>
-        </div>
-        <iframe
-          src={viewerUrl}
-          title={title}
-          className="h-[75dvh] w-full bg-neutral-100 dark:bg-neutral-950"
-        />
+        {collapsible ? (
+          <details open={!defaultCollapsed} className="group">
+            <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+              {headerRow}
+            </summary>
+            {viewer}
+          </details>
+        ) : (
+          <>
+            {headerRow}
+            {viewer}
+          </>
+        )}
       </div>
 
       {fullscreen && (
