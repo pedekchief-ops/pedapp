@@ -3,6 +3,7 @@
 import { Suspense, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { sendMagicLinkForUsername, signInWithUsername } from "@/lib/actions/auth";
 
 type Mode = "signin" | "signup";
 
@@ -23,7 +24,11 @@ function LoginFormInner({ logoUrl }: { logoUrl: string | null }) {
   const redirectTo = searchParams.get("redirectTo") || "/";
 
   const [mode, setMode] = useState<Mode>("signin");
-  const [email, setEmail] = useState("");
+  // Sign-in: a short "username" (see lib/actions/auth.ts's server-side
+  // mapping to the real account email -- kept out of the client bundle).
+  // Sign-up: a real email address, since creating a Supabase Auth account
+  // needs one. Same input, different meaning depending on mode.
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -36,22 +41,19 @@ function LoginFormInner({ logoUrl }: { logoUrl: string | null }) {
     setNotice(null);
     setLoading(true);
 
-    const supabase = createClient();
-
     if (mode === "signin") {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error: signInError } = await signInWithUsername(identifier, password);
       setLoading(false);
       if (signInError) {
-        setError(signInError.message);
+        setError(signInError);
         return;
       }
       router.push(redirectTo);
       router.refresh();
       return;
     }
+
+    const supabase = createClient();
 
     // Every visitor already has a silent anonymous session (see
     // lib/supabase/middleware.ts). Sign out of it first so signUp always
@@ -69,7 +71,7 @@ function LoginFormInner({ logoUrl }: { logoUrl: string | null }) {
     // Promoting a resident to admin is a deliberate manual step, not
     // something this form can do.
     const { error: signUpError } = await supabase.auth.signUp({
-      email,
+      email: identifier,
       password,
       options: { data: { full_name: fullName } },
     });
@@ -83,18 +85,17 @@ function LoginFormInner({ logoUrl }: { logoUrl: string | null }) {
   }
 
   async function handleMagicLink() {
-    if (!email) {
-      setError("הזינו כתובת מייל תחילה");
+    if (!identifier) {
+      setError("הזינו שם משתמש תחילה");
       return;
     }
     setError(null);
     setNotice(null);
     setLoading(true);
-    const supabase = createClient();
-    const { error: otpError } = await supabase.auth.signInWithOtp({ email });
+    const { error: otpError } = await sendMagicLinkForUsername(identifier);
     setLoading(false);
     if (otpError) {
-      setError(otpError.message);
+      setError(otpError);
       return;
     }
     setNotice("נשלח קישור התחברות למייל שלכם.");
@@ -130,12 +131,13 @@ function LoginFormInner({ logoUrl }: { logoUrl: string | null }) {
             />
           )}
           <input
-            type="email"
-            placeholder="אימייל"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            type={mode === "signin" ? "text" : "email"}
+            placeholder={mode === "signin" ? "שם משתמש" : "אימייל"}
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
             required
             dir="ltr"
+            autoComplete={mode === "signin" ? "username" : "email"}
             className="rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm outline-none focus:border-primary dark:border-neutral-700"
           />
           <input
@@ -161,14 +163,16 @@ function LoginFormInner({ logoUrl }: { logoUrl: string | null }) {
           </button>
         </form>
 
-        <button
-          type="button"
-          onClick={handleMagicLink}
-          disabled={loading}
-          className="mt-3 w-full text-center text-xs text-neutral-500 underline decoration-dotted hover:text-neutral-800 disabled:opacity-50 dark:text-neutral-400 dark:hover:text-neutral-200"
-        >
-          שלחו לי קישור התחברות למייל במקום
-        </button>
+        {mode === "signin" && (
+          <button
+            type="button"
+            onClick={handleMagicLink}
+            disabled={loading}
+            className="mt-3 w-full text-center text-xs text-neutral-500 underline decoration-dotted hover:text-neutral-800 disabled:opacity-50 dark:text-neutral-400 dark:hover:text-neutral-200"
+          >
+            שלחו לי קישור התחברות למייל במקום
+          </button>
+        )}
 
         <button
           type="button"
