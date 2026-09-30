@@ -18,6 +18,13 @@ export interface SearchHit {
   // medications browser (see components/medications/MedicationsBrowser.tsx's
   // `open` query param handling).
   medicationId: string | null;
+  // A more specific sub-context than sectionSlug/pageTitleHe alone -- the
+  // tab label when a matching block lives inside a tabs_container's tab
+  // (e.g. "זיהומיות" inside "הנחיות קליניות"), or the medication's
+  // category name(s) for a drug hit (a drug can be in more than one
+  // category, joined with " · "). Null when there's no such extra context
+  // (a title-only match, or a top-level block).
+  subLabel: string | null;
   snippet: string | null;
 }
 
@@ -39,6 +46,12 @@ interface BlockRow {
   id: string;
   page_id: string;
   content: unknown;
+  tab_key: string | null;
+  parent_block_id: string | null;
+}
+
+interface TabsContainerContentShape {
+  tabs?: { key: string; label_he: string }[];
 }
 
 // Crude but effective: rich_text/data_table/link_button content is stored
@@ -114,14 +127,35 @@ async function searchMedications(
   const searchableKeys = ((fieldsData ?? []) as { key: string }[]).map((f) => f.key);
   if (searchableKeys.length === 0) return [];
 
-  const { data: medicationsData } = await supabase.from("medications").select("id, values");
+  const [{ data: medicationsData }, { data: linksData }, { data: categoriesData }] = await Promise.all([
+    supabase.from("medications").select("id, values"),
+    supabase.from("medication_category_links").select("medication_id, category_id"),
+    supabase.from("medication_categories").select("id, name_he"),
+  ]);
   const lowerQuery = query.toLowerCase();
+
+  // A drug can be in more than one category (see medication_category_links
+  // in supabase/migrations/0008_medications.sql) -- e.g. searching inside
+  // "אנלגטיקה" should show that category name on the result, even though
+  // categories aren't stored as a single field on the medication itself.
+  const categoryNameById = new Map<string, string>(
+    ((categoriesData ?? []) as { id: string; name_he: string }[]).map((c) => [c.id, c.name_he])
+  );
+  const categoryNamesByMedicationId = new Map<string, string[]>();
+  for (const link of (linksData ?? []) as { medication_id: string; category_id: string }[]) {
+    const name = categoryNameById.get(link.category_id);
+    if (!name) continue;
+    const list = categoryNamesByMedicationId.get(link.medication_id) ?? [];
+    list.push(name);
+    categoryNamesByMedicationId.set(link.medication_id, list);
+  }
 
   const hits: SearchHit[] = [];
   for (const medication of (medicationsData ?? []) as { id: string; values: Record<string, unknown> }[]) {
     for (const key of searchableKeys) {
       const value = medication.values[key];
       if (typeof value === "string" && value.toLowerCase().includes(lowerQuery)) {
+        const categoryNames = categoryNamesByMedicationId.get(medication.id) ?? [];
         hits.push({
           sectionSlug: section.slug,
           sectionNameHe: section.name_he,
@@ -129,6 +163,7 @@ async function searchMedications(
           pageTitleHe: value,
           blockId: null,
           medicationId: medication.id,
+          subLabel: categoryNames.length > 0 ? categoryNames.join(" · ") : null,
           snippet: null,
         });
         break;
@@ -233,6 +268,29 @@ export async function searchContent(
   });
   const blockMatches = (blockMatchesData ?? []) as BlockRow[];
 
+  // A matching block that lives inside a tab (parent_block_id + tab_key
+  // both set -- see supabase/migrations/0001_init_schema.sql on how
+  // tabs_container nesting works) needs its parent tabs_container's own
+  // content to look up that tab's label_he. Fetched in one extra query for
+  // every distinct parent referenced, rather than N+1.
+  const parentIdsNeeded = new Set(
+    blockMatches.filter((b) => b.parent_block_id && b.tab_key).map((b) => b.parent_block_id as string)
+  );
+  const tabLabelByParentAndKey = new Map<string, string>();
+  if (parentIdsNeeded.size > 0) {
+    const { data: parentBlocksData } = await supabase
+      .from("blocks")
+      .select("id, content")
+      .in("id", Array.from(parentIdsNeeded));
+    for (const parent of (parentBlocksData ?? []) as { id: string; content: unknown }[]) {
+      const tabs = (parent.content as TabsContainerContentShape)?.tabs;
+      if (!Array.isArray(tabs)) continue;
+      for (const tab of tabs) {
+        tabLabelByParentAndKey.set(`${parent.id}:${tab.key}`, tab.label_he);
+      }
+    }
+  }
+
   const pageIdsNeeded = new Set<string>();
   titleMatches.forEach((p) => pageIdsNeeded.add(p.id));
   blockMatches.forEach((b) => pageIdsNeeded.add(b.page_id));
@@ -270,6 +328,7 @@ export async function searchContent(
     pageIdKey: string,
     blockId: string | null,
     snippet: string | null,
+    subLabel: string | null,
     dedupeByBlock: boolean
   ) {
     const page = pagesById.get(pageIdKey);
@@ -285,6 +344,7 @@ export async function searchContent(
       pageTitleHe: page.title_he,
       blockId,
       medicationId: null,
+      subLabel,
       snippet,
     });
   }
@@ -297,10 +357,14 @@ export async function searchContent(
     const snippet = isDataTableContent(b.content)
       ? dataTableSnippet(b.content, query) ?? snippetFromContent(b.content, query)
       : snippetFromContent(b.content, query);
-    addHit(b.page_id, b.id, snippet, !!pageId);
+    const subLabel =
+      b.parent_block_id && b.tab_key
+        ? tabLabelByParentAndKey.get(`${b.parent_block_id}:${b.tab_key}`) ?? null
+        : null;
+    addHit(b.page_id, b.id, snippet, subLabel, !!pageId);
   }
   for (const p of titleMatches) {
-    addHit(p.id, null, null, !!pageId);
+    addHit(p.id, null, null, null, !!pageId);
   }
 
   return [...medicationHits, ...Array.from(hits.values())];

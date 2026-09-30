@@ -164,6 +164,7 @@ export function SearchOverlay({
                     <span className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400">
                       <MapPin size={11} />
                       {hit.sectionNameHe}
+                      {hit.subLabel && <span> · {hit.subLabel}</span>}
                     </span>
                     {hit.snippet && (
                       <span className="mt-0.5 line-clamp-1 text-xs text-neutral-400">{hit.snippet}</span>
