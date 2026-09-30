@@ -2,11 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Link from "next/link";
+import { Pencil } from "lucide-react";
 import { BlockRenderer } from "@/components/blocks/BlockRenderer";
 import type { PageWithBlocks } from "@/lib/supabase/types";
 
 type FetchStatus = "loading" | "ready" | "error";
-type LoadedPage = PageWithBlocks & { editorName: string | null };
+// isAdmin: set server-side by app/api/pages/[sectionSlug]/[pageSlug]/route.ts
+// (it already has the signed-in user on hand) -- lets this view show a
+// direct "edit this page" link without a separate admin-status check here.
+type LoadedPage = PageWithBlocks & { editorName: string | null; isAdmin: boolean };
 
 // A Client Component that fetches its content from /api/pages/[..]/[..]
 // (JSON) rather than being server-rendered. This is deliberate: it's what
@@ -97,9 +102,21 @@ function PageViewContent({
   return (
     <article className="mx-auto max-w-4xl p-4">
       <div className="mx-auto max-w-2xl">
-        <h1 className="mb-1 text-xl font-semibold text-neutral-900 dark:text-neutral-50">
-          {page.title_he}
-        </h1>
+        <div className="mb-1 flex items-center gap-2">
+          <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-50">
+            {page.title_he}
+          </h1>
+          {page.isAdmin && (
+            <Link
+              href={`/admin/${sectionSlug}/${pageSlug}/edit`}
+              aria-label="עריכת עמוד זה"
+              title="עריכת עמוד זה"
+              className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
+            >
+              <Pencil size={16} />
+            </Link>
+          )}
+        </div>
         <p className="mb-6 text-xs text-neutral-500 dark:text-neutral-400">
           עודכן לאחרונה {new Date(page.updated_at).toLocaleDateString("he-IL")}
           {page.editorName && ` על ידי ${page.editorName}`}

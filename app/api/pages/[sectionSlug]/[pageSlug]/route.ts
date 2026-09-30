@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getPageWithBlocks } from "@/lib/data";
+import { getPageWithBlocks, getProfile } from "@/lib/data";
 
 // JSON endpoint backing the resident page view (see
 // app/(resident)/[sectionSlug]/[pageSlug]/page.tsx for why this is a fetch()
@@ -37,5 +37,12 @@ export async function GET(
     editorName = editor?.full_name ?? null;
   }
 
-  return NextResponse.json({ ...page, editorName });
+  // Lets the resident page view (app/(resident)/[sectionSlug]/[pageSlug]/page.tsx)
+  // show a direct "edit this page" link to admins, without needing its own
+  // separate admin-status check -- this route already has the signed-in
+  // user on hand.
+  const profile = await getProfile(supabase, user.id);
+  const isAdmin = profile?.role === "admin";
+
+  return NextResponse.json({ ...page, editorName, isAdmin });
 }

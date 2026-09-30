@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { getPagesForSection, getSectionBySlug } from "@/lib/data";
+import { getPagesForSection, getProfile, getSectionBySlug } from "@/lib/data";
 import { buildBlockTree } from "@/lib/blocks";
 import { BlockRenderer } from "@/components/blocks/BlockRenderer";
 import { MedicationsBrowserLoader } from "@/components/medications/MedicationsBrowserLoader";
@@ -45,6 +46,20 @@ export default async function SectionPage({
     landingBlocks = buildBlockTree((blocks as Block[]) ?? []);
   }
 
+  // A direct "edit this page" link for the landing page's content -- same
+  // reasoning as app/(resident)/[sectionSlug]/[pageSlug]/page.tsx's edit
+  // icon, just server-rendered here since this page already runs server-side.
+  let isAdmin = false;
+  if (landingPage) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const profile = await getProfile(supabase, user.id);
+      isAdmin = profile?.role === "admin";
+    }
+  }
+
   return (
     <div className="mx-auto max-w-4xl p-4">
       <h1 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
@@ -70,6 +85,17 @@ export default async function SectionPage({
 
       {landingPage ? (
         <div className="flex flex-col gap-6">
+          {isAdmin && (
+            <div className="mx-auto w-full max-w-2xl">
+              <Link
+                href={`/admin/${section.slug}/${landingPage.slug}/edit`}
+                className="inline-flex items-center gap-1.5 text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+              >
+                <Pencil size={13} />
+                עריכת התוכן הזה
+              </Link>
+            </div>
+          )}
           {landingBlocks.map((block) => {
             const isWide = block.type === "pdf" || block.type === "data_table";
             return (
