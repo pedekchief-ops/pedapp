@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getMedicationCategories, getMedicationFields, getMedicationsWithCategories } from "@/lib/medications";
+import { getProfile } from "@/lib/data";
 
 // JSON endpoint backing the resident-facing medications browser (see
 // components/medications/MedicationsBrowserLoader.tsx). Fetched
@@ -18,11 +19,24 @@ export async function GET() {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const [fields, categories, medications] = await Promise.all([
+  const [fields, categories, medications, profile, sectionResult] = await Promise.all([
     getMedicationFields(supabase),
     getMedicationCategories(supabase),
     getMedicationsWithCategories(supabase),
+    getProfile(supabase, user.id),
+    // Medications aren't scoped to a section in the schema (exactly one
+    // shared list, see lib/search.ts's searchMedications for the same
+    // lookup) -- needed here only so an admin editing inline from the
+    // resident view can call saveMedication(sectionSlug, ...), which wants
+    // it purely for cache revalidation.
+    supabase.from("sections").select("slug").eq("section_type", "medications").limit(1).maybeSingle(),
   ]);
 
-  return NextResponse.json({ fields, categories, medications });
+  return NextResponse.json({
+    fields,
+    categories,
+    medications,
+    isAdmin: profile?.role === "admin",
+    sectionSlug: sectionResult.data?.slug ?? null,
+  });
 }

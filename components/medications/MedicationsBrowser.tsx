@@ -1,10 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Pencil } from "lucide-react";
 import { formatMedicationFieldValue, getMedicationTitle } from "@/lib/medications";
-import type { MedicationCategory, MedicationField, MedicationWithCategories } from "@/lib/supabase/types";
+import { saveMedication } from "@/lib/actions/medications";
+import { MedicationForm } from "@/components/admin/medications/MedicationForm";
+import { useToast } from "@/components/Toast";
+import type {
+  MedicationCategory,
+  MedicationField,
+  MedicationFieldValue,
+  MedicationWithCategories,
+} from "@/lib/supabase/types";
 
 // The resident-facing medications view: a horizontally-scrolling row of
 // category tabs (never wraps to multiple lines, same pattern as
@@ -19,10 +27,20 @@ import type { MedicationCategory, MedicationField, MedicationWithCategories } fr
 // result (without leaving /medications) remounts fresh with the new
 // initial state -- same pattern as the [pageSlug] route keys PageViewContent
 // by its route params.
+//
+// isAdmin/sectionSlug/onSaved: lets an admin edit a drug inline, right from
+// this same view, instead of going back to /admin -- same ask as the
+// per-page "edit this page" icon (app/(resident)/[sectionSlug]/[pageSlug]/page.tsx),
+// just for medications. Reuses MedicationForm/saveMedication as-is (the
+// same ones the admin screen uses); RLS still enforces that only a real
+// admin session can actually write.
 export function MedicationsBrowser(props: {
   fields: MedicationField[];
   categories: MedicationCategory[];
   medications: MedicationWithCategories[];
+  isAdmin: boolean;
+  sectionSlug: string | null;
+  onSaved: () => void;
 }) {
   const searchParams = useSearchParams();
   const openId = searchParams.get("open");
@@ -34,11 +52,17 @@ function MedicationsBrowserView({
   categories,
   medications,
   openId,
+  isAdmin,
+  sectionSlug,
+  onSaved,
 }: {
   fields: MedicationField[];
   categories: MedicationCategory[];
   medications: MedicationWithCategories[];
   openId: string | null;
+  isAdmin: boolean;
+  sectionSlug: string | null;
+  onSaved: () => void;
 }) {
   const openMedication = openId ? medications.find((m) => m.id === openId) : undefined;
 
@@ -46,6 +70,9 @@ function MedicationsBrowserView({
     openMedication?.categoryIds[0] ?? categories[0]?.id
   );
   const [expandedId, setExpandedId] = useState<string | null>(openMedication ? openId : null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, startSaving] = useTransition();
+  const { showToast } = useToast();
 
   const summaryFields = fields.filter((f) => f.show_in_summary);
   const detailFields = fields.filter((f) => !f.is_title);
@@ -70,6 +97,20 @@ function MedicationsBrowserView({
     );
   }, [medications, activeCategory, fields]);
 
+  function handleSave(
+    medicationId: string,
+    values: Record<string, MedicationFieldValue>,
+    categoryIds: string[]
+  ) {
+    if (!sectionSlug) return;
+    startSaving(async () => {
+      await saveMedication(sectionSlug, { id: medicationId, values, categoryIds });
+      setEditingId(null);
+      showToast("התרופה עודכנה");
+      onSaved();
+    });
+  }
+
   if (categories.length === 0) {
     return (
       <p className="p-4 text-sm text-neutral-500 dark:text-neutral-400">
@@ -88,6 +129,7 @@ function MedicationsBrowserView({
             onClick={() => {
               setActiveCategory(category.id);
               setExpandedId(null);
+              setEditingId(null);
             }}
             className={`whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition ${
               activeCategory === category.id
@@ -106,6 +148,7 @@ function MedicationsBrowserView({
         <ul className="flex flex-col gap-2">
           {filtered.map((medication) => {
             const isExpanded = expandedId === medication.id;
+            const isEditing = editingId === medication.id;
             const title = getMedicationTitle(fields, medication.values);
 
             return (
@@ -116,7 +159,10 @@ function MedicationsBrowserView({
               >
                 <button
                   type="button"
-                  onClick={() => setExpandedId(isExpanded ? null : medication.id)}
+                  onClick={() => {
+                    setExpandedId(isExpanded ? null : medication.id);
+                    setEditingId(null);
+                  }}
                   aria-expanded={isExpanded}
                   className="flex w-full items-center justify-between gap-3 px-4 py-3 text-start hover:bg-neutral-50 dark:hover:bg-neutral-900"
                 >
@@ -141,20 +187,44 @@ function MedicationsBrowserView({
                 </button>
                 {isExpanded && (
                   <div className="border-t border-neutral-100 px-4 py-3 dark:border-neutral-900">
-                    <dl className="flex flex-col gap-2">
-                      {detailFields.map((field) => {
-                        const text = formatMedicationFieldValue(field, medication.values);
-                        if (!text) return null;
-                        return (
-                          <div key={field.id} className="flex flex-col gap-0.5 text-sm sm:flex-row sm:gap-2">
-                            <dt className="min-w-24 font-medium text-neutral-600 dark:text-neutral-300">
-                              {field.label_he}
-                            </dt>
-                            <dd className="text-neutral-800 dark:text-neutral-100">{text}</dd>
-                          </div>
-                        );
-                      })}
-                    </dl>
+                    {isEditing ? (
+                      <MedicationForm
+                        fields={fields}
+                        categories={categories}
+                        initialValues={medication.values}
+                        initialCategoryIds={medication.categoryIds}
+                        saving={saving}
+                        onCancel={() => setEditingId(null)}
+                        onSave={(values, categoryIds) => handleSave(medication.id, values, categoryIds)}
+                      />
+                    ) : (
+                      <>
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => setEditingId(medication.id)}
+                            className="mb-2 flex items-center gap-1.5 text-xs text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
+                          >
+                            <Pencil size={13} />
+                            עריכת תרופה זו
+                          </button>
+                        )}
+                        <dl className="flex flex-col gap-2">
+                          {detailFields.map((field) => {
+                            const text = formatMedicationFieldValue(field, medication.values);
+                            if (!text) return null;
+                            return (
+                              <div key={field.id} className="flex flex-col gap-0.5 text-sm sm:flex-row sm:gap-2">
+                                <dt className="min-w-24 font-medium text-neutral-600 dark:text-neutral-300">
+                                  {field.label_he}
+                                </dt>
+                                <dd className="text-neutral-800 dark:text-neutral-100">{text}</dd>
+                              </div>
+                            );
+                          })}
+                        </dl>
+                      </>
+                    )}
                   </div>
                 )}
               </li>
