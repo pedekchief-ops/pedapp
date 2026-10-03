@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import type {
   MedicationCategory,
   MedicationField,
@@ -12,11 +13,18 @@ import type {
 // FieldManager.tsx) -- every field renders a different input depending on
 // its field_type, so adding a new field there immediately shows up here
 // with no code change needed.
+//
+// initialIsHidden/onSave's isHidden -- see
+// supabase/migrations/0013_medication_visibility.sql. Lets whoever's
+// editing (an admin, or a clinical pharmacist reviewing content) hide this
+// one drug from residents until it's been approved, independent of its
+// category's own visibility.
 export function MedicationForm({
   fields,
   categories,
   initialValues,
   initialCategoryIds,
+  initialIsHidden,
   onSave,
   onCancel,
   saving,
@@ -25,12 +33,14 @@ export function MedicationForm({
   categories: MedicationCategory[];
   initialValues: Record<string, MedicationFieldValue>;
   initialCategoryIds: string[];
-  onSave: (values: Record<string, MedicationFieldValue>, categoryIds: string[]) => void;
+  initialIsHidden: boolean;
+  onSave: (values: Record<string, MedicationFieldValue>, categoryIds: string[], isHidden: boolean) => void;
   onCancel: () => void;
   saving: boolean;
 }) {
   const [values, setValues] = useState<Record<string, MedicationFieldValue>>(initialValues);
   const [categoryIds, setCategoryIds] = useState<string[]>(initialCategoryIds);
+  const [isHidden, setIsHidden] = useState(initialIsHidden);
 
   function setValue(key: string, value: MedicationFieldValue) {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -77,11 +87,27 @@ export function MedicationForm({
         </div>
       </div>
 
+      <div className="flex items-center gap-2">
+        {isHidden && (
+          <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+            מוסתרת ממתמחים כרגע
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => setIsHidden((v) => !v)}
+          className="flex items-center gap-1.5 rounded-lg border border-neutral-300 px-2.5 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+        >
+          {isHidden ? <Eye size={14} /> : <EyeOff size={14} />}
+          {isHidden ? "הצגה" : "הסתרה"}
+        </button>
+      </div>
+
       <div className="flex items-center gap-2 pt-2">
         <button
           type="button"
           disabled={saving}
-          onClick={() => onSave(values, categoryIds)}
+          onClick={() => onSave(values, categoryIds, isHidden)}
           className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
           {saving ? "שומר..." : "שמירה"}

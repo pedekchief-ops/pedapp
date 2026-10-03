@@ -246,11 +246,15 @@ export interface MedicationField {
   created_at: string;
 }
 
+// is_hidden -- see supabase/migrations/0013_medication_visibility.sql.
+// Hides every drug in this category from residents (and site search),
+// regardless of each drug's own is_hidden.
 export interface MedicationCategory {
   id: string;
   name_he: string;
   name_en: string | null;
   order_index: number;
+  is_hidden: boolean;
   created_at: string;
 }
 
@@ -265,9 +269,13 @@ export interface MedicationNumberRangeValue {
 // string[] when the select field has `multiple` set.
 export type MedicationFieldValue = string | number | string[] | MedicationNumberRangeValue | null;
 
+// is_hidden -- see supabase/migrations/0013_medication_visibility.sql.
+// Hides this one drug from residents and site search (pending clinical
+// pharmacist review), regardless of show_in_summary/etc.
 export interface Medication {
   id: string;
   values: Record<string, MedicationFieldValue>;
+  is_hidden: boolean;
   updated_by: string | null;
   updated_at: string;
   created_at: string;

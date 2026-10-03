@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Plus, Pencil, Trash2, FolderPlus, FolderMinus, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, FolderPlus, FolderMinus, Search, EyeOff } from "lucide-react";
 import {
   bulkDeleteMedications,
   bulkSetMedicationCategory,
@@ -65,10 +65,11 @@ export function MedicationsAdminList({
   function handleSave(
     id: string | null,
     values: Record<string, MedicationFieldValue>,
-    categoryIds: string[]
+    categoryIds: string[],
+    isHidden: boolean
   ) {
     startSaving(async () => {
-      await saveMedication(sectionSlug, { id, values, categoryIds });
+      await saveMedication(sectionSlug, { id, values, categoryIds, isHidden });
       setAdding(false);
       setEditingId(null);
       showToast(id ? "התרופה עודכנה" : "התרופה נוספה");
@@ -156,9 +157,10 @@ export function MedicationsAdminList({
             categories={categories}
             initialValues={{}}
             initialCategoryIds={[]}
+            initialIsHidden={false}
             saving={saving}
             onCancel={() => setAdding(false)}
-            onSave={(values, categoryIds) => handleSave(null, values, categoryIds)}
+            onSave={(values, categoryIds, isHidden) => handleSave(null, values, categoryIds, isHidden)}
           />
         </div>
       )}
@@ -242,6 +244,15 @@ export function MedicationsAdminList({
                   >
                     <Pencil size={14} className="text-neutral-400" />
                     <span className="text-sm font-medium text-neutral-900 dark:text-neutral-50">{name}</span>
+                    {medication.is_hidden && (
+                      <span
+                        title="מוסתרת ממתמחים"
+                        className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+                      >
+                        <EyeOff size={11} />
+                        מוסתרת
+                      </span>
+                    )}
                     <span className="flex flex-wrap gap-1">
                       {medication.categoryIds.map((id) => {
                         const category = categoriesById.get(id);
@@ -274,9 +285,12 @@ export function MedicationsAdminList({
                       categories={categories}
                       initialValues={medication.values}
                       initialCategoryIds={medication.categoryIds}
+                      initialIsHidden={medication.is_hidden}
                       saving={saving}
                       onCancel={() => setEditingId(null)}
-                      onSave={(values, categoryIds) => handleSave(medication.id, values, categoryIds)}
+                      onSave={(values, categoryIds, isHidden) =>
+                        handleSave(medication.id, values, categoryIds, isHidden)
+                      }
                     />
                   </div>
                 )}

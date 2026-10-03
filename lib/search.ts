@@ -128,9 +128,9 @@ async function searchMedications(
   if (searchableKeys.length === 0) return [];
 
   const [{ data: medicationsData }, { data: linksData }, { data: categoriesData }] = await Promise.all([
-    supabase.from("medications").select("id, values"),
+    supabase.from("medications").select("id, values, is_hidden"),
     supabase.from("medication_category_links").select("medication_id, category_id"),
-    supabase.from("medication_categories").select("id, name_he"),
+    supabase.from("medication_categories").select("id, name_he, is_hidden"),
   ]);
   const lowerQuery = query.toLowerCase();
 
@@ -138,11 +138,18 @@ async function searchMedications(
   // in supabase/migrations/0008_medications.sql) -- e.g. searching inside
   // "אנלגטיקה" should show that category name on the result, even though
   // categories aren't stored as a single field on the medication itself.
-  const categoryNameById = new Map<string, string>(
-    ((categoriesData ?? []) as { id: string; name_he: string }[]).map((c) => [c.id, c.name_he])
-  );
+  const categoryRows = (categoriesData ?? []) as { id: string; name_he: string; is_hidden: boolean }[];
+  const categoryNameById = new Map<string, string>(categoryRows.map((c) => [c.id, c.name_he]));
+  // A hidden drug, or one whose category is hidden (see
+  // supabase/migrations/0013_medication_visibility.sql), never shows up in
+  // search at all -- not just dimmed in results.
+  const hiddenCategoryIds = new Set(categoryRows.filter((c) => c.is_hidden).map((c) => c.id));
   const categoryNamesByMedicationId = new Map<string, string[]>();
+  const hiddenCategoryByMedicationId = new Set<string>();
   for (const link of (linksData ?? []) as { medication_id: string; category_id: string }[]) {
+    if (hiddenCategoryIds.has(link.category_id)) {
+      hiddenCategoryByMedicationId.add(link.medication_id);
+    }
     const name = categoryNameById.get(link.category_id);
     if (!name) continue;
     const list = categoryNamesByMedicationId.get(link.medication_id) ?? [];
@@ -151,7 +158,12 @@ async function searchMedications(
   }
 
   const hits: SearchHit[] = [];
-  for (const medication of (medicationsData ?? []) as { id: string; values: Record<string, unknown> }[]) {
+  for (const medication of (medicationsData ?? []) as {
+    id: string;
+    values: Record<string, unknown>;
+    is_hidden: boolean;
+  }[]) {
+    if (medication.is_hidden || hiddenCategoryByMedicationId.has(medication.id)) continue;
     for (const key of searchableKeys) {
       const value = medication.values[key];
       if (typeof value === "string" && value.toLowerCase().includes(lowerQuery)) {

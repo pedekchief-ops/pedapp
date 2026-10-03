@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Trash2, ArrowUp, ArrowDown, Eye, EyeOff } from "lucide-react";
 import {
   createMedicationCategory,
   deleteMedicationCategory,
@@ -63,11 +63,29 @@ export function CategoryManager({
             onBlur={(e) => {
               const value = e.target.value.trim();
               if (value && value !== category.name_he) {
-                startTransition(() => updateMedicationCategory(sectionSlug, category.id, value));
+                startTransition(() => updateMedicationCategory(sectionSlug, category.id, { name_he: value }));
               }
             }}
             className="flex-1 rounded-lg border border-transparent bg-transparent px-1 text-sm outline-none focus:border-neutral-300 dark:focus:border-neutral-700"
           />
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() =>
+              startTransition(() =>
+                updateMedicationCategory(sectionSlug, category.id, { is_hidden: !category.is_hidden })
+              )
+            }
+            title={category.is_hidden ? "מוסתרת ממתמחים -- לחיצה תציג" : "מוצגת למתמחים -- לחיצה תסתיר"}
+            className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs disabled:opacity-30 ${
+              category.is_hidden
+                ? "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-950/40 dark:text-amber-400"
+                : "text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            }`}
+          >
+            {category.is_hidden ? <EyeOff size={14} /> : <Eye size={14} />}
+            {category.is_hidden && "מוסתרת"}
+          </button>
           <button
             type="button"
             disabled={index === 0 || pending}

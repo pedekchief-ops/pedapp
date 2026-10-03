@@ -19,7 +19,7 @@ export async function GET() {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const [fields, categories, medications, profile, sectionResult] = await Promise.all([
+  const [fields, allCategories, allMedications, profile, sectionResult] = await Promise.all([
     getMedicationFields(supabase),
     getMedicationCategories(supabase),
     getMedicationsWithCategories(supabase),
@@ -32,11 +32,28 @@ export async function GET() {
     supabase.from("sections").select("slug").eq("section_type", "medications").limit(1).maybeSingle(),
   ]);
 
+  const isAdmin = profile?.role === "admin";
+
+  // A non-admin (every resident) never receives hidden content at all --
+  // not just hidden from the UI, actually absent from the response -- see
+  // supabase/migrations/0013_medication_visibility.sql. An admin gets
+  // everything, marked, so they (or a reviewing clinical pharmacist) can
+  // find and un-hide what's been approved.
+  let categories = allCategories;
+  let medications = allMedications;
+  if (!isAdmin) {
+    const hiddenCategoryIds = new Set(allCategories.filter((c) => c.is_hidden).map((c) => c.id));
+    categories = allCategories.filter((c) => !c.is_hidden);
+    medications = allMedications.filter(
+      (m) => !m.is_hidden && !m.categoryIds.some((id) => hiddenCategoryIds.has(id))
+    );
+  }
+
   return NextResponse.json({
     fields,
     categories,
     medications,
-    isAdmin: profile?.role === "admin",
+    isAdmin,
     sectionSlug: sectionResult.data?.slug ?? null,
   });
 }

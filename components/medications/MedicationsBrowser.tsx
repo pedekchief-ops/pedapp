@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
-import { ChevronDown, Pencil } from "lucide-react";
+import { ChevronDown, EyeOff, Pencil } from "lucide-react";
 import { formatMedicationFieldValue, getMedicationTitle } from "@/lib/medications";
 import { saveMedication } from "@/lib/actions/medications";
 import { MedicationForm } from "@/components/admin/medications/MedicationForm";
@@ -100,11 +100,12 @@ function MedicationsBrowserView({
   function handleSave(
     medicationId: string,
     values: Record<string, MedicationFieldValue>,
-    categoryIds: string[]
+    categoryIds: string[],
+    isHidden: boolean
   ) {
     if (!sectionSlug) return;
     startSaving(async () => {
-      await saveMedication(sectionSlug, { id: medicationId, values, categoryIds });
+      await saveMedication(sectionSlug, { id: medicationId, values, categoryIds, isHidden });
       setEditingId(null);
       showToast("התרופה עודכנה");
       onSaved();
@@ -131,12 +132,13 @@ function MedicationsBrowserView({
               setExpandedId(null);
               setEditingId(null);
             }}
-            className={`whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition ${
+            className={`flex items-center gap-1 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition ${
               activeCategory === category.id
                 ? "border-primary text-primary"
                 : "border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
             }`}
           >
+            {category.is_hidden && <EyeOff size={13} className="text-amber-500" />}
             {category.name_he}
           </button>
         ))}
@@ -167,7 +169,10 @@ function MedicationsBrowserView({
                   className="flex w-full items-center justify-between gap-3 px-4 py-3 text-start hover:bg-neutral-50 dark:hover:bg-neutral-900"
                 >
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50">{title}</p>
+                    <p className="flex items-center gap-1.5 text-sm font-semibold text-neutral-900 dark:text-neutral-50">
+                      {medication.is_hidden && <EyeOff size={13} className="shrink-0 text-amber-500" />}
+                      {title}
+                    </p>
                     <p className="mt-0.5 flex flex-wrap gap-x-3 text-xs text-neutral-500 dark:text-neutral-400">
                       {summaryFields.map((field) => {
                         const text = formatMedicationFieldValue(field, medication.values);
@@ -193,9 +198,12 @@ function MedicationsBrowserView({
                         categories={categories}
                         initialValues={medication.values}
                         initialCategoryIds={medication.categoryIds}
+                        initialIsHidden={medication.is_hidden}
                         saving={saving}
                         onCancel={() => setEditingId(null)}
-                        onSave={(values, categoryIds) => handleSave(medication.id, values, categoryIds)}
+                        onSave={(values, categoryIds, isHidden) =>
+                          handleSave(medication.id, values, categoryIds, isHidden)
+                        }
                       />
                     ) : (
                       <>

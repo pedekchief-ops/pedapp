@@ -132,11 +132,15 @@ export async function createMedicationCategory(sectionSlug: string, name_he: str
   return data as MedicationCategory;
 }
 
-export async function updateMedicationCategory(sectionSlug: string, categoryId: string, name_he: string) {
+export async function updateMedicationCategory(
+  sectionSlug: string,
+  categoryId: string,
+  params: Partial<{ name_he: string; is_hidden: boolean }>
+) {
   const supabase = await createClient();
   const { error } = await supabase
     .from("medication_categories")
-    .update({ name_he })
+    .update(params)
     .eq("id", categoryId);
   if (error) throw error;
   revalidateMedications(sectionSlug);
@@ -180,6 +184,7 @@ export async function saveMedication(
     id: string | null; // null -> create
     values: Record<string, MedicationFieldValue>;
     categoryIds: string[];
+    isHidden: boolean;
   }
 ) {
   const supabase = await createClient();
@@ -192,13 +197,18 @@ export async function saveMedication(
   if (medicationId) {
     const { error } = await supabase
       .from("medications")
-      .update({ values: params.values, updated_by: user.id, updated_at: new Date().toISOString() })
+      .update({
+        values: params.values,
+        is_hidden: params.isHidden,
+        updated_by: user.id,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", medicationId);
     if (error) throw error;
   } else {
     const { data, error } = await supabase
       .from("medications")
-      .insert({ values: params.values, updated_by: user.id })
+      .insert({ values: params.values, is_hidden: params.isHidden, updated_by: user.id })
       .select()
       .single();
     if (error) throw error;

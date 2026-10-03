@@ -156,6 +156,7 @@ export function ImportReview({
               id: null,
               values,
               categoryIds: categoryId ? [categoryId] : [],
+              isHidden: false,
             });
           })
         );
