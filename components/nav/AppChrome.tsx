@@ -38,7 +38,7 @@ export function AppChrome({
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-40 flex items-center gap-1 border-b border-neutral-200 bg-white/90 px-2 py-3 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/90">
+      <header className="sticky top-0 z-40 flex items-center gap-1 border-b border-neutral-200 bg-white/90 px-2 py-3 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/90 print:hidden">
         {!isHome && <BackButton />}
         <button
           type="button"

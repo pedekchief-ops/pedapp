@@ -34,7 +34,7 @@ export interface AppSettings {
 // 'medications' sections render the dedicated category-tabs + structured
 // drug list (components/medications/MedicationsBrowser.tsx) instead of the
 // default generic pages list -- see supabase/migrations/0008_medications.sql.
-export type SectionType = "generic" | "medications";
+export type SectionType = "generic" | "medications" | "handoff";
 
 export interface Section {
   id: string;
@@ -294,4 +294,27 @@ export interface Medication {
 
 export interface MedicationWithCategories extends Medication {
   categoryIds: string[];
+}
+
+// "העברת מחלקה" -- see supabase/migrations/0015_handoff_board.sql and
+// components/handoff/HandoffBoard.tsx. One row per bed (fixed wards) or
+// per added patient (the two free-form wards).
+export type HandoffWard = "near_side" | "seven" | "far_side" | "satellites" | "annex";
+
+export interface HandoffPatient {
+  id: string;
+  ward: HandoffWard;
+  is_fixed: boolean;
+  order_index: number;
+  location: string;
+  patient_name: string;
+  age: string;
+  background: string;
+  active_issue: string;
+  medications: string;
+  evening_tasks: string;
+  evening_exam: boolean;
+  morning_labs: boolean;
+  updated_by: string | null;
+  updated_at: string;
 }

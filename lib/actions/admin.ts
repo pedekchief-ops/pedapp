@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { notifyResidentsOfPageUpdate } from "@/lib/push/send";
-import type { Block, BlockDraft } from "@/lib/supabase/types";
+import type { Block, BlockDraft, SectionType } from "@/lib/supabase/types";
 
 // All writes below go through the per-request client (createClient), which
 // carries the calling admin's own session cookies. That's deliberate: Row
@@ -166,7 +166,7 @@ export async function createSection(params: {
   name_he: string;
   name_en: string;
   icon: string;
-  section_type: "generic" | "medications";
+  section_type: SectionType;
 }) {
   const supabase = await createClient();
   const { data: existing } = await supabase

@@ -6,6 +6,7 @@ import { getPagesForSection, getProfile, getSectionBySlug } from "@/lib/data";
 import { buildBlockTree, resolveLinkedBlocks } from "@/lib/blocks";
 import { BlockRenderer } from "@/components/blocks/BlockRenderer";
 import { MedicationsBrowserLoader } from "@/components/medications/MedicationsBrowserLoader";
+import { HandoffBoardLoader } from "@/components/handoff/HandoffBoardLoader";
 import type { Block } from "@/lib/supabase/types";
 
 export default async function SectionPage({
@@ -26,6 +27,21 @@ export default async function SectionPage({
   // view works (app/(resident)/[sectionSlug]/[pageSlug]/page.tsx).
   if (section.section_type === "medications") {
     return <MedicationsBrowserLoader />;
+  }
+
+  // 'handoff' sections render the department sign-out board instead of
+  // pages too -- see supabase/migrations/0015_handoff_board.sql. Full
+  // width (not the max-w-4xl generic layout below): the table needs the
+  // room.
+  if (section.section_type === "handoff") {
+    return (
+      <div className="p-4 print:p-0">
+        <h1 className="mb-4 text-lg font-semibold text-neutral-900 dark:text-neutral-50 print:hidden">
+          {section.name_he}
+        </h1>
+        <HandoffBoardLoader />
+      </div>
+    );
   }
 
   const pages = await getPagesForSection(supabase, section.id);

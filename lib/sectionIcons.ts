@@ -18,6 +18,7 @@ import {
   Thermometer,
   Shield,
   Folder,
+  Table,
   type LucideIcon,
 } from "lucide-react";
 
@@ -47,6 +48,7 @@ export const SECTION_ICONS: Record<string, LucideIcon> = {
   thermometer: Thermometer,
   shield: Shield,
   folder: Folder,
+  table: Table,
 };
 
 export const SECTION_ICON_KEYS = Object.keys(SECTION_ICONS);

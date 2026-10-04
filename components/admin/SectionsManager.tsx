@@ -13,7 +13,7 @@ import { useConfirmDialog } from "@/components/ConfirmDialog";
 import { useToast } from "@/components/Toast";
 import { OfflineToggle } from "@/components/admin/OfflineToggle";
 import { DEFAULT_SECTION_ICON, SECTION_ICONS, SECTION_ICON_KEYS } from "@/lib/sectionIcons";
-import type { Section } from "@/lib/supabase/types";
+import type { Section, SectionType } from "@/lib/supabase/types";
 
 // Full CRUD for the app's top-level nav sections: add, rename, change
 // icon, reorder (exactly the tab/card order shown on the home grid and in
@@ -37,7 +37,9 @@ export function SectionsManager({
       description:
         section.section_type === "medications"
           ? "כל העמודים בקטגוריה זו יימחקו. רשימת התרופות עצמה לא תלויה בקטגוריה ותישאר קיימת."
-          : "כל העמודים בקטגוריה זו יימחקו יחד איתה. לא ניתן לשחזר פעולה זו.",
+          : section.section_type === "handoff"
+            ? "לוח המעקב עצמו לא תלוי בקטגוריה ויישאר קיים -- רק הגישה אליו מכאן תוסר."
+            : "כל העמודים בקטגוריה זו יימחקו יחד איתה. לא ניתן לשחזר פעולה זו.",
       confirmLabel: "מחיקה",
       danger: true,
     });
@@ -67,7 +69,9 @@ export function SectionsManager({
                 <span className="text-xs text-neutral-400">
                   {section.section_type === "medications"
                     ? "תרופות"
-                    : `${pageCounts.get(section.id) ?? 0} עמודים`}
+                    : section.section_type === "handoff"
+                      ? "העברת מחלקה"
+                      : `${pageCounts.get(section.id) ?? 0} עמודים`}
                 </span>
               </Link>
             </li>
@@ -193,7 +197,11 @@ function SectionRow({
       </div>
 
       <span className="whitespace-nowrap text-xs text-neutral-400">
-        {section.section_type === "medications" ? "תרופות" : `${pageCount} עמודים`}
+        {section.section_type === "medications"
+          ? "תרופות"
+          : section.section_type === "handoff"
+            ? "העברת מחלקה"
+            : `${pageCount} עמודים`}
       </span>
 
       <OfflineToggle sectionId={section.id} initialValue={section.is_offline_critical} />
@@ -247,7 +255,7 @@ function AddSectionForm({
   const [nameHe, setNameHe] = useState("");
   const [nameEn, setNameEn] = useState("");
   const [icon, setIcon] = useState(SECTION_ICON_KEYS[0]);
-  const [sectionType, setSectionType] = useState<"generic" | "medications">("generic");
+  const [sectionType, setSectionType] = useState<SectionType>("generic");
   const [pending, startTransition] = useTransition();
 
   function handleCreate() {
@@ -289,15 +297,18 @@ function AddSectionForm({
         </select>
       </div>
 
-      <label className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
-        <input
-          type="checkbox"
-          checked={sectionType === "medications"}
-          onChange={(e) => setSectionType(e.target.checked ? "medications" : "generic")}
-          className="h-3.5 w-3.5"
-        />
-        קטגוריית תרופות מובנית (טבלת תרופות עם קטגוריות/שדות, במקום עמודים רגילים)
-      </label>
+      <div>
+        <label className="mb-1 block text-xs text-neutral-500 dark:text-neutral-400">סוג קטגוריה</label>
+        <select
+          value={sectionType}
+          onChange={(e) => setSectionType(e.target.value as SectionType)}
+          className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-950"
+        >
+          <option value="generic">רגילה (עמודים חופשיים)</option>
+          <option value="medications">תרופות (טבלת תרופות עם קטגוריות/שדות)</option>
+          <option value="handoff">העברת מחלקה (טבלת מעקב מטופלים לפי אגף)</option>
+        </select>
+      </div>
 
       <div className="flex items-center gap-2">
         <button

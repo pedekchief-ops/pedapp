@@ -83,3 +83,15 @@ body {
   border-color: var(--color-neutral-700, #404040);
 }
 .tiptap-content:focus, .tiptap:focus { outline: none; }
+
+/* Printing the handoff board (components/handoff/HandoffTable.tsx's
+   "הדפסה" button) -- A4 landscape so the wide table fits a normal office
+   printer without the browser shrinking/clipping it unpredictably. The
+   rest of the page (chrome, other tabs, action buttons) is hidden via
+   Tailwind's print: variant at each element, not here. */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+}

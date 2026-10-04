@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPagesForSection, getSectionBySlug, getSections } from "@/lib/data";
@@ -17,6 +17,13 @@ export default async function AdminSectionPage({
 
   const section = await getSectionBySlug(supabase, sectionSlug);
   if (!section) notFound();
+
+  // No separate admin screen -- every resident already edits the handoff
+  // board directly (see supabase/migrations/0015_handoff_board.sql), so
+  // "ניהול תוכן הקטגוריה" just goes straight there.
+  if (section.section_type === "handoff") {
+    redirect(`/${section.slug}`);
+  }
 
   if (section.section_type === "medications") {
     const [fields, categories, medications] = await Promise.all([
