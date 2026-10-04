@@ -10,14 +10,14 @@ import {
   FileText,
   Columns,
   Link as LinkIcon,
+  Link2,
   Table,
-  Copy,
 } from "lucide-react";
 import { createEmptyBlock } from "@/lib/editor/blockDraft";
 import type { BlockDraft, BlockType } from "@/lib/supabase/types";
 import { BlockEditor } from "./BlockEditor";
 import { BulkFileUploader } from "./BulkFileUploader";
-import { CopyBlockDialog } from "./CopyBlockDialog";
+import { LinkManagerDialog } from "./LinkManagerDialog";
 import { LinkedBlockNotice } from "./LinkedBlockNotice";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 
@@ -36,7 +36,7 @@ export function BlockList({
   tabKey?: string | null;
 }) {
   const { confirm, dialog } = useConfirmDialog();
-  const [copyDialogFor, setCopyDialogFor] = useState<BlockDraft | null>(null);
+  const [linkDialogFor, setLinkDialogFor] = useState<BlockDraft | null>(null);
 
   function updateAt(index: number, block: BlockDraft) {
     const next = blocks.slice();
@@ -118,12 +118,12 @@ export function BlockList({
               {!block.source_stable_id && block.type !== "tabs_container" && (
                 <button
                   type="button"
-                  onClick={() => setCopyDialogFor(block)}
-                  aria-label="צור העתק"
+                  onClick={() => setLinkDialogFor(block)}
+                  aria-label="ניהול קישורים"
                   className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  title="צור העתק"
+                  title="ניהול קישורים"
                 >
-                  <Copy size={14} />
+                  <Link2 size={14} />
                 </button>
               )}
               <button
@@ -161,8 +161,8 @@ export function BlockList({
           )}
         </div>
       ))}
-      {copyDialogFor && (
-        <CopyBlockDialog block={copyDialogFor} onClose={() => setCopyDialogFor(null)} />
+      {linkDialogFor && (
+        <LinkManagerDialog block={linkDialogFor} onClose={() => setLinkDialogFor(null)} />
       )}
 
       <div className="flex flex-wrap items-start gap-2">

@@ -362,7 +362,7 @@ export async function publishPage(params: {
   }
 }
 
-// Data for the "צור העתק" destination picker (components/editor/CopyBlockDialog.tsx)
+// Data for the "add a link" destination picker (components/editor/LinkManagerDialog.tsx)
 // -- every page across every section, so an admin can send a copy anywhere
 // in the app, not just within the current section.
 export async function getPagesForLinkPicker(): Promise<
@@ -430,6 +430,51 @@ export async function createLinkedBlockCopy(params: {
     default_collapsed: params.snapshot.default_collapsed,
     collapsible_label: params.snapshot.collapsible_label,
   });
+  if (error) throw error;
+
+  revalidatePath(`/admin/${params.targetSectionSlug}/${params.targetPageSlug}/edit`);
+  revalidatePath(`/${params.targetSectionSlug}/${params.targetPageSlug}`);
+}
+
+// Every existing linked copy of one block (components/editor/LinkManagerDialog.tsx),
+// so an admin can see where it's shown before adding another link or
+// removing one -- there's no other way to discover this today, since a
+// copy only points back at its source, not the other way around.
+export async function getLinkedCopies(sourceStableId: string): Promise<
+  { blockId: string; pageTitleHe: string; sectionNameHe: string; sectionSlug: string; pageSlug: string }[]
+> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("blocks")
+    .select("id, pages(title_he, slug, sections(name_he, slug))")
+    .eq("source_stable_id", sourceStableId);
+  if (error) throw error;
+
+  return ((data ?? []) as unknown as {
+    id: string;
+    pages: { title_he: string; slug: string; sections: { name_he: string; slug: string } | null } | null;
+  }[])
+    .filter((b) => b.pages && b.pages.sections)
+    .map((b) => ({
+      blockId: b.id,
+      pageTitleHe: b.pages!.title_he,
+      sectionNameHe: b.pages!.sections!.name_he,
+      sectionSlug: b.pages!.sections!.slug,
+      pageSlug: b.pages!.slug,
+    }));
+}
+
+// Removes one linked copy -- just that single block row, same as deleting
+// any other block, except this reaches across to the *target* page's row
+// directly from wherever the admin is managing the source block's links,
+// instead of requiring them to go open that other page's editor.
+export async function deleteLinkedCopy(params: {
+  blockId: string;
+  targetSectionSlug: string;
+  targetPageSlug: string;
+}) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("blocks").delete().eq("id", params.blockId);
   if (error) throw error;
 
   revalidatePath(`/admin/${params.targetSectionSlug}/${params.targetPageSlug}/edit`);
