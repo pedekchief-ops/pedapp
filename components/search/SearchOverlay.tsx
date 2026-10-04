@@ -2,18 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Search, X, MapPin } from "lucide-react";
-import type { Section } from "@/lib/supabase/types";
+import { Search, X, MapPin, ArrowLeft } from "lucide-react";
+import { BlockRenderer } from "@/components/blocks/BlockRenderer";
+import { formatMedicationFieldValue } from "@/lib/medications";
+import type { Block, BlockNode, MedicationField, MedicationFieldValue, Section } from "@/lib/supabase/types";
 import type { SearchHit } from "@/lib/search";
 
 type Scope = "all" | "section" | "page";
 
+function hitKey(hit: SearchHit): string {
+  return `${hit.medicationId ?? hit.pageSlug}-${hit.blockId ?? "page"}`;
+}
+
 // Search accessible from anywhere in the app (opened from AppChrome's
-// header icon), scoped by default to wherever the resident currently is:
-// inside a page it defaults to "this page only" (block-level results with
-// snippets), inside a section it defaults to that category, and from the
-// home grid it defaults to everything. The resident can always widen or
-// narrow the scope via the chips.
+// header icon, or the home page's HomeSearchBar), scoped by default to
+// wherever the resident currently is: inside a page it defaults to "this
+// page only" (block-level results with snippets), inside a section it
+// defaults to that category, and from the home grid it defaults to
+// everything. The resident can always widen or narrow the scope via the
+// chips.
 //
 // AppChrome only renders this component while open (`{searchOpen && ...}`)
 // rather than passing an `open` prop -- that mount/unmount is what gives
@@ -42,6 +49,19 @@ export function SearchOverlay({
   const inputRef = useRef<HTMLInputElement>(null);
   const trimmedQuery = query.trim();
 
+  // Clicking a result that has something specific to show (a matched
+  // block, or a drug) expands it in place instead of navigating away
+  // immediately -- "מעבר לעמוד" inside the preview is the actual
+  // navigation. A title-only match (no block, no drug) has nothing to
+  // preview, so it still navigates straight away.
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [blockPreview, setBlockPreview] = useState<BlockNode | null>(null);
+  const [medicationPreview, setMedicationPreview] = useState<{
+    fields: MedicationField[];
+    values: Record<string, MedicationFieldValue>;
+  } | null>(null);
+
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
@@ -51,6 +71,7 @@ export function SearchOverlay({
     const controller = new AbortController();
     const timer = setTimeout(() => {
       setLoading(true);
+      setExpandedKey(null);
       const search = new URLSearchParams({ q: trimmedQuery });
       if (scope === "section" && sectionFilter) search.set("section", sectionFilter);
       if (scope === "page" && currentSectionSlug && currentPageSlug) {
@@ -80,6 +101,50 @@ export function SearchOverlay({
     }
     onClose();
     router.push(url);
+  }
+
+  async function handleResultClick(hit: SearchHit) {
+    if (!hit.blockId && !hit.medicationId) {
+      // Nothing more specific than the page itself matched -- go straight
+      // there, same as before this feature existed.
+      goTo(hit);
+      return;
+    }
+
+    const key = hitKey(hit);
+    if (expandedKey === key) {
+      setExpandedKey(null);
+      return;
+    }
+    setExpandedKey(key);
+    setBlockPreview(null);
+    setMedicationPreview(null);
+    setPreviewLoading(true);
+    try {
+      if (hit.blockId) {
+        const res = await fetch(`/api/blocks/${hit.blockId}`);
+        if (res.ok) {
+          const block = (await res.json()) as Block;
+          // Force collapsible off for the preview -- whatever state the
+          // page itself uses it in, the whole point here is to show the
+          // match immediately, not behind a toggle.
+          setBlockPreview({ ...block, collapsible: false, children: [] });
+        }
+      } else if (hit.medicationId) {
+        const res = await fetch("/api/medications");
+        if (res.ok) {
+          const data = await res.json();
+          const medication = (
+            data.medications as { id: string; values: Record<string, MedicationFieldValue> }[]
+          ).find((m) => m.id === hit.medicationId);
+          if (medication) {
+            setMedicationPreview({ fields: data.fields, values: medication.values });
+          }
+        }
+      }
+    } finally {
+      setPreviewLoading(false);
+    }
   }
 
   // Stale results from a previous, longer query are simply not shown once
@@ -141,7 +206,7 @@ export function SearchOverlay({
           </div>
         )}
 
-        <div className="max-h-96 overflow-y-auto p-2">
+        <div className="max-h-[32rem] overflow-y-auto p-2">
           {loading && <p className="p-3 text-sm text-neutral-400">מחפש...</p>}
           {showResults && results.length === 0 && (
             <p className="p-3 text-sm text-neutral-400">לא נמצאו תוצאות.</p>
@@ -151,27 +216,79 @@ export function SearchOverlay({
           )}
           {showResults && (
             <ul className="flex flex-col gap-1">
-              {results.map((hit) => (
-                <li key={`${hit.medicationId ?? hit.pageSlug}-${hit.blockId ?? "page"}`}>
-                  <button
-                    type="button"
-                    onClick={() => goTo(hit)}
-                    className="flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-start hover:bg-neutral-50 dark:hover:bg-neutral-800"
-                  >
-                    <span className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
-                      {hit.pageTitleHe}
-                    </span>
-                    <span className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400">
-                      <MapPin size={11} />
-                      {hit.sectionNameHe}
-                      {hit.subLabel && <span> · {hit.subLabel}</span>}
-                    </span>
-                    {hit.snippet && (
-                      <span className="mt-0.5 line-clamp-1 text-xs text-neutral-400">{hit.snippet}</span>
+              {results.map((hit) => {
+                const key = hitKey(hit);
+                const isExpanded = expandedKey === key;
+                return (
+                  <li key={key} className="rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => handleResultClick(hit)}
+                      className="flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-start hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                    >
+                      <span className="text-sm font-medium text-neutral-900 dark:text-neutral-50">
+                        {hit.pageTitleHe}
+                      </span>
+                      <span className="flex items-center gap-1 text-xs text-neutral-500 dark:text-neutral-400">
+                        <MapPin size={11} />
+                        {hit.sectionNameHe}
+                        {hit.subLabel && <span> · {hit.subLabel}</span>}
+                      </span>
+                      {hit.snippet && (
+                        <span className="mt-0.5 line-clamp-1 text-xs text-neutral-400">{hit.snippet}</span>
+                      )}
+                    </button>
+
+                    {isExpanded && (
+                      <div className="mb-1 rounded-xl border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950">
+                        {previewLoading ? (
+                          <p className="text-xs text-neutral-400">טוען תצוגה מקדימה...</p>
+                        ) : (
+                          <>
+                            {blockPreview && (
+                              <div className="mb-3 max-h-80 overflow-y-auto">
+                                <BlockRenderer block={blockPreview} />
+                              </div>
+                            )}
+                            {medicationPreview && (
+                              <dl className="mb-3 flex flex-col gap-1.5">
+                                {medicationPreview.fields
+                                  .filter((f) => !f.is_title)
+                                  .map((field) => {
+                                    const text = formatMedicationFieldValue(field, medicationPreview.values);
+                                    if (!text) return null;
+                                    return (
+                                      <div
+                                        key={field.id}
+                                        className="flex flex-col gap-0.5 text-sm sm:flex-row sm:gap-2"
+                                      >
+                                        <dt className="min-w-24 font-medium text-neutral-600 dark:text-neutral-300">
+                                          {field.label_he}
+                                        </dt>
+                                        <dd className="text-neutral-800 dark:text-neutral-100">{text}</dd>
+                                      </div>
+                                    );
+                                  })}
+                              </dl>
+                            )}
+                            {!blockPreview && !medicationPreview && (
+                              <p className="mb-3 text-xs text-neutral-400">לא ניתן לטעון תצוגה מקדימה.</p>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => goTo(hit)}
+                              className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+                            >
+                              <ArrowLeft size={14} />
+                              מעבר לעמוד
+                            </button>
+                          </>
+                        )}
+                      </div>
                     )}
-                  </button>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
