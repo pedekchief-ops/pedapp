@@ -25,6 +25,11 @@ export function MedicationsAdmin({
   medications: MedicationWithCategories[];
 }) {
   const [tab, setTab] = useState<Tab>("medications");
+  // Set when a category's name is clicked from the "קטגוריות" tab (see
+  // CategoryManager's onSelectCategory) -- jumps to "תרופות" pre-filtered
+  // to that category's drugs instead of the admin having to find them in
+  // the full list by eye.
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
   return (
     <div>
@@ -49,9 +54,20 @@ export function MedicationsAdmin({
           fields={fields}
           categories={categories}
           medications={medications}
+          categoryFilter={categoryFilter}
+          onClearCategoryFilter={() => setCategoryFilter(null)}
         />
       )}
-      {tab === "categories" && <CategoryManager sectionSlug={sectionSlug} categories={categories} />}
+      {tab === "categories" && (
+        <CategoryManager
+          sectionSlug={sectionSlug}
+          categories={categories}
+          onSelectCategory={(categoryId) => {
+            setCategoryFilter(categoryId);
+            setTab("medications");
+          }}
+        />
+      )}
       {tab === "fields" && <FieldManager sectionSlug={sectionSlug} fields={fields} />}
       {tab === "import" && (
         <ImportPanel sectionSlug={sectionSlug} fields={fields} categories={categories} />

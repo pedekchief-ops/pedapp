@@ -143,6 +143,28 @@ export async function updateMedicationCategory(
     .update(params)
     .eq("id", categoryId);
   if (error) throw error;
+
+  // Hiding (or showing) a category cascades the same state onto every
+  // medication currently in it, so "קטגוריה מוסתרת" actually means every
+  // drug inside starts out pending review -- see saveMedication's own
+  // cascade (the other direction: approving one drug clears its
+  // category's flag) for why both sides need to stay in sync.
+  if (params.is_hidden !== undefined) {
+    const { data: links, error: linksError } = await supabase
+      .from("medication_category_links")
+      .select("medication_id")
+      .eq("category_id", categoryId);
+    if (linksError) throw linksError;
+    const medicationIds = (links ?? []).map((l) => l.medication_id as string);
+    if (medicationIds.length > 0) {
+      const { error: medError } = await supabase
+        .from("medications")
+        .update({ is_hidden: params.is_hidden })
+        .in("id", medicationIds);
+      if (medError) throw medError;
+    }
+  }
+
   revalidateMedications(sectionSlug);
 }
 
@@ -228,6 +250,23 @@ export async function saveMedication(
       params.categoryIds.map((categoryId) => ({ medication_id: medicationId, category_id: categoryId }))
     );
     if (insertLinksError) throw insertLinksError;
+  }
+
+  // Approving (un-hiding) a drug that sits in a hidden category clears
+  // that category's own flag too -- otherwise this drug would stay
+  // invisible anyway, since residents' medication list hides anything
+  // whose own flag OR whose category's flag is set (see
+  // app/api/medications/route.ts). Other drugs still pending in the same
+  // category stay hidden regardless, via their own flag (see
+  // updateMedicationCategory's cascade, which set it on every member the
+  // moment the category was hidden).
+  if (!params.isHidden && params.categoryIds.length > 0) {
+    const { error: unhideError } = await supabase
+      .from("medication_categories")
+      .update({ is_hidden: false })
+      .in("id", params.categoryIds)
+      .eq("is_hidden", true);
+    if (unhideError) throw unhideError;
   }
 
   revalidateMedications(sectionSlug);

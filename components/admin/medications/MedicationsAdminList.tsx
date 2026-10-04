@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Plus, Pencil, Trash2, FolderPlus, FolderMinus, Search, EyeOff } from "lucide-react";
+import { Plus, Pencil, Trash2, FolderPlus, FolderMinus, Search, EyeOff, X } from "lucide-react";
 import {
   bulkDeleteMedications,
   bulkSetMedicationCategory,
@@ -28,11 +28,15 @@ export function MedicationsAdminList({
   fields,
   categories,
   medications,
+  categoryFilter = null,
+  onClearCategoryFilter,
 }: {
   sectionSlug: string;
   fields: MedicationField[];
   categories: MedicationCategory[];
   medications: MedicationWithCategories[];
+  categoryFilter?: string | null;
+  onClearCategoryFilter?: () => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -44,14 +48,16 @@ export function MedicationsAdminList({
   const { showToast } = useToast();
 
   const categoriesById = new Map(categories.map((c) => [c.id, c]));
+  const filteredCategory = categoryFilter ? categoriesById.get(categoryFilter) : null;
 
   const visibleMedications = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return medications;
-    return medications.filter((m) =>
-      getMedicationSearchTexts(fields, m.values).some((text) => text.toLowerCase().includes(query))
-    );
-  }, [medications, fields, search]);
+    return medications.filter((m) => {
+      if (categoryFilter && !m.categoryIds.includes(categoryFilter)) return false;
+      if (!query) return true;
+      return getMedicationSearchTexts(fields, m.values).some((text) => text.toLowerCase().includes(query));
+    });
+  }, [medications, fields, search, categoryFilter]);
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -124,6 +130,21 @@ export function MedicationsAdminList({
 
   return (
     <div className="flex flex-col gap-3">
+      {filteredCategory && (
+        <div className="flex items-center justify-between gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+          <span className="text-neutral-700 dark:text-neutral-200">
+            מוצגות תרופות מהקטגוריה <strong>{filteredCategory.name_he}</strong> בלבד
+          </span>
+          <button
+            type="button"
+            onClick={onClearCategoryFilter}
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
+          >
+            <X size={13} />
+            הצגת כל התרופות
+          </button>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         {!adding && (
           <button
@@ -213,7 +234,11 @@ export function MedicationsAdminList({
 
       {visibleMedications.length === 0 ? (
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          {medications.length === 0 ? "אין עדיין תרופות." : "לא נמצאו תרופות מתאימות לחיפוש."}
+          {medications.length === 0
+            ? "אין עדיין תרופות."
+            : filteredCategory && !search.trim()
+              ? "אין תרופות בקטגוריה זו."
+              : "לא נמצאו תרופות מתאימות לחיפוש."}
         </p>
       ) : (
         <ul className="flex flex-col gap-2">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Plus, Trash2, ArrowUp, ArrowDown, Eye, EyeOff } from "lucide-react";
+import { Plus, Trash2, ArrowUp, ArrowDown, Eye, EyeOff, Pencil } from "lucide-react";
 import {
   createMedicationCategory,
   deleteMedicationCategory,
@@ -14,18 +14,32 @@ import type { MedicationCategory } from "@/lib/supabase/types";
 
 // Manages the categories shown as tabs at the top of the resident-facing
 // medications browser: add/rename/delete/reorder. Order here is exactly
-// the left-to-right tab order (see MedicationsBrowser.tsx).
+// the left-to-right tab order (see MedicationsBrowser.tsx). Clicking a
+// category's name jumps to that category's drugs on the "תרופות" tab
+// (onSelectCategory, handled by MedicationsAdmin) -- renaming moved to a
+// separate pencil icon so the name itself is free to act as that link.
 export function CategoryManager({
   sectionSlug,
   categories,
+  onSelectCategory,
 }: {
   sectionSlug: string;
   categories: MedicationCategory[];
+  onSelectCategory: (categoryId: string) => void;
 }) {
   const [newName, setNewName] = useState("");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const { confirm, dialog } = useConfirmDialog();
   const { showToast } = useToast();
+
+  function commitRename(category: MedicationCategory, value: string) {
+    const trimmed = value.trim();
+    setRenamingId(null);
+    if (trimmed && trimmed !== category.name_he) {
+      startTransition(() => updateMedicationCategory(sectionSlug, category.id, { name_he: trimmed }));
+    }
+  }
 
   function handleAdd() {
     const name = newName.trim();
@@ -58,16 +72,36 @@ export function CategoryManager({
           key={category.id}
           className="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 dark:border-neutral-800 dark:bg-neutral-900"
         >
-          <input
-            defaultValue={category.name_he}
-            onBlur={(e) => {
-              const value = e.target.value.trim();
-              if (value && value !== category.name_he) {
-                startTransition(() => updateMedicationCategory(sectionSlug, category.id, { name_he: value }));
-              }
-            }}
-            className="flex-1 rounded-lg border border-transparent bg-transparent px-1 text-sm outline-none focus:border-neutral-300 dark:focus:border-neutral-700"
-          />
+          {renamingId === category.id ? (
+            <input
+              autoFocus
+              defaultValue={category.name_he}
+              onBlur={(e) => commitRename(category, e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+                if (e.key === "Escape") setRenamingId(null);
+              }}
+              className="flex-1 rounded-lg border border-neutral-300 bg-transparent px-1 text-sm outline-none dark:border-neutral-700"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => onSelectCategory(category.id)}
+              title="צפייה ועריכה של התרופות בקטגוריה זו"
+              className="flex-1 rounded-lg px-1 py-0.5 text-start text-sm text-neutral-900 hover:underline dark:text-neutral-50"
+            >
+              {category.name_he}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setRenamingId(category.id)}
+            aria-label="שינוי שם הקטגוריה"
+            title="שינוי שם"
+            className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          >
+            <Pencil size={13} />
+          </button>
           <button
             type="button"
             disabled={pending}
