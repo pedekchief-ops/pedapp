@@ -9,7 +9,7 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <HomeSearchBar sections={sections} />
+      <HomeSearchBar />
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {sections.map((section) => (
           <SectionCard key={section.id} section={section} />

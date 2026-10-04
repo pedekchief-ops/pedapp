@@ -163,6 +163,13 @@ export interface Block {
   collapsible: boolean;
   default_collapsed: boolean;
   collapsible_label: string | null;
+  // stable_id/source_stable_id -- see
+  // supabase/migrations/0014_linked_block_copies.sql. source_stable_id set
+  // means this row is a live-linked copy of the block whose stable_id
+  // matches; this row's own type/content is just a frozen fallback, see
+  // lib/blocks.ts's resolveLinkedBlocks.
+  stable_id: string;
+  source_stable_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -214,6 +221,10 @@ export interface BlockDraft {
   collapsible: boolean;
   default_collapsed: boolean;
   collapsible_label: string | null;
+  // Carried through unchanged across edits (never regenerated the way
+  // `id` is on publish) -- see supabase/migrations/0014_linked_block_copies.sql.
+  stable_id: string;
+  source_stable_id: string | null;
   children: BlockDraft[];
 }
 

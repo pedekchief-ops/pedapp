@@ -11,6 +11,8 @@ export function createEmptyBlock(type: BlockType, tabKey: string | null = null):
     collapsible: false,
     default_collapsed: false,
     collapsible_label: null,
+    stable_id: crypto.randomUUID(),
+    source_stable_id: null,
     children: [] as BlockDraft[],
   };
 
@@ -64,6 +66,8 @@ export function blockNodeToDraft(node: BlockNode): BlockDraft {
     collapsible: node.collapsible,
     default_collapsed: node.default_collapsed,
     collapsible_label: node.collapsible_label,
+    stable_id: node.stable_id,
+    source_stable_id: node.source_stable_id,
     children: node.children.map(blockNodeToDraft),
   };
 }

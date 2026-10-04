@@ -22,7 +22,7 @@ export async function GET(
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const page = await getPageWithBlocks(supabase, sectionSlug, pageSlug);
+  const page = await getPageWithBlocks(supabase, sectionSlug, pageSlug, { resolveLinks: true });
   if (!page) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }

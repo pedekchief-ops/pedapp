@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   ArrowUp,
   ArrowDown,
@@ -10,11 +11,14 @@ import {
   Columns,
   Link as LinkIcon,
   Table,
+  Copy,
 } from "lucide-react";
 import { createEmptyBlock } from "@/lib/editor/blockDraft";
 import type { BlockDraft, BlockType } from "@/lib/supabase/types";
 import { BlockEditor } from "./BlockEditor";
 import { BulkFileUploader } from "./BulkFileUploader";
+import { CopyBlockDialog } from "./CopyBlockDialog";
+import { LinkedBlockNotice } from "./LinkedBlockNotice";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
 
 // Renders an ordered, editable list of blocks with add/reorder/delete
@@ -32,6 +36,7 @@ export function BlockList({
   tabKey?: string | null;
 }) {
   const { confirm, dialog } = useConfirmDialog();
+  const [copyDialogFor, setCopyDialogFor] = useState<BlockDraft | null>(null);
 
   function updateAt(index: number, block: BlockDraft) {
     const next = blocks.slice();
@@ -106,6 +111,21 @@ export function BlockList({
               )}
             </div>
             <div className="flex items-center gap-1">
+              {/* A copy of a copy would have nothing of its own to point
+                  at (see supabase/migrations/0014_linked_block_copies.sql),
+                  and a tabs_container's real content lives in child rows a
+                  copy wouldn't bring along -- so both stay uncopyable. */}
+              {!block.source_stable_id && block.type !== "tabs_container" && (
+                <button
+                  type="button"
+                  onClick={() => setCopyDialogFor(block)}
+                  aria-label="צור העתק"
+                  className="rounded-md p-1 text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  title="צור העתק"
+                >
+                  <Copy size={14} />
+                </button>
+              )}
               <button
                 type="button"
                 disabled={index === 0}
@@ -134,9 +154,16 @@ export function BlockList({
               </button>
             </div>
           </div>
-          <BlockEditor block={block} onChange={(updated) => updateAt(index, updated)} />
+          {block.source_stable_id ? (
+            <LinkedBlockNotice type={block.type} />
+          ) : (
+            <BlockEditor block={block} onChange={(updated) => updateAt(index, updated)} />
+          )}
         </div>
       ))}
+      {copyDialogFor && (
+        <CopyBlockDialog block={copyDialogFor} onClose={() => setCopyDialogFor(null)} />
+      )}
 
       <div className="flex flex-wrap items-start gap-2">
         <AddButton icon={<Type size={14} />} label="טקסט" onClick={() => addBlock("rich_text")} />

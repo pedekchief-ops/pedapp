@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildBlockTree } from "@/lib/blocks";
+import { buildBlockTree, resolveLinkedBlocks } from "@/lib/blocks";
 import type {
   AppSettings,
   Block,
@@ -71,10 +71,19 @@ export async function getPagesForSection(
 
 // Fetches one page plus its full nested block tree, scoped by section slug
 // so two different sections can reuse the same page slug.
+//
+// `resolveLinks` defaults to false (the raw rows, link copies included
+// as-is) because this is shared by the admin editor loader, which needs
+// to see a copy's source_stable_id to render it as a linked, read-only
+// card -- resolving it away there would make a link look like (and get
+// silently re-saved as) an ordinary independent block. Resident-facing
+// callers pass `resolveLinks: true` to get the live overlay instead; see
+// lib/blocks.ts's resolveLinkedBlocks.
 export async function getPageWithBlocks(
   supabase: SupabaseClient,
   sectionSlug: string,
-  pageSlug: string
+  pageSlug: string,
+  opts: { resolveLinks?: boolean } = {}
 ): Promise<PageWithBlocks | null> {
   const section = await getSectionBySlug(supabase, sectionSlug);
   if (!section) return null;
@@ -93,5 +102,9 @@ export async function getPageWithBlocks(
     .eq("page_id", page.id);
   if (blocksError) throw blocksError;
 
-  return { ...page, blocks: buildBlockTree((blocks as Block[]) ?? []) };
+  const resolved = opts.resolveLinks
+    ? await resolveLinkedBlocks(supabase, (blocks as Block[]) ?? [])
+    : ((blocks as Block[]) ?? []);
+
+  return { ...page, blocks: buildBlockTree(resolved) };
 }

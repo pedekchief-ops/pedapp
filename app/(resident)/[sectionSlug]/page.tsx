@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPagesForSection, getProfile, getSectionBySlug } from "@/lib/data";
-import { buildBlockTree } from "@/lib/blocks";
+import { buildBlockTree, resolveLinkedBlocks } from "@/lib/blocks";
 import { BlockRenderer } from "@/components/blocks/BlockRenderer";
 import { MedicationsBrowserLoader } from "@/components/medications/MedicationsBrowserLoader";
 import type { Block } from "@/lib/supabase/types";
@@ -43,7 +43,8 @@ export default async function SectionPage({
       .select("*")
       .eq("page_id", landingPage.id);
     if (error) throw error;
-    landingBlocks = buildBlockTree((blocks as Block[]) ?? []);
+    const resolved = await resolveLinkedBlocks(supabase, (blocks as Block[]) ?? []);
+    landingBlocks = buildBlockTree(resolved);
   }
 
   // A direct "edit this page" link for the landing page's content -- same

@@ -269,6 +269,9 @@ export async function updateAppSettings(params: {
 // each publish -- see the file header of supabase/migrations/0001_init_schema.sql
 // for why blocks are rows rather than one JSON blob, which is still true
 // even though the *write* path here is replace-all for simplicity).
+// stable_id is the one thing NOT regenerated here -- see
+// supabase/migrations/0014_linked_block_copies.sql for why a block's
+// identity for linking purposes has to survive this id churn.
 function flattenDrafts(
   drafts: BlockDraft[],
   pageId: string,
@@ -287,6 +290,8 @@ function flattenDrafts(
       collapsible: draft.collapsible,
       default_collapsed: draft.default_collapsed,
       collapsible_label: draft.collapsible_label,
+      stable_id: draft.stable_id,
+      source_stable_id: draft.source_stable_id,
     };
     return [row, ...flattenDrafts(draft.children, pageId, id)];
   });
@@ -355,4 +360,78 @@ export async function publishPage(params: {
   } catch {
     // swallow -- see comment above
   }
+}
+
+// Data for the "צור העתק" destination picker (components/editor/CopyBlockDialog.tsx)
+// -- every page across every section, so an admin can send a copy anywhere
+// in the app, not just within the current section.
+export async function getPagesForLinkPicker(): Promise<
+  { pageId: string; pageTitleHe: string; sectionNameHe: string; sectionSlug: string; pageSlug: string }[]
+> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("pages")
+    .select("id, title_he, slug, sections(name_he, slug)")
+    .order("title_he");
+  if (error) throw error;
+
+  return ((data ?? []) as unknown as {
+    id: string;
+    title_he: string;
+    slug: string;
+    sections: { name_he: string; slug: string } | null;
+  }[])
+    .filter((p) => p.sections)
+    .map((p) => ({
+      pageId: p.id,
+      pageTitleHe: p.title_he,
+      sectionNameHe: p.sections!.name_he,
+      sectionSlug: p.sections!.slug,
+      pageSlug: p.slug,
+    }));
+}
+
+// Creates a live-linked copy of one already-published block on another
+// (or the same) page -- see supabase/migrations/0014_linked_block_copies.sql.
+// Writes straight to the database rather than going through the draft/
+// publish flow, same as createPage/deletePage/movePage: it's a standalone
+// action on an existing, already-published block, not an edit to the page
+// currently open in the editor.
+export async function createLinkedBlockCopy(params: {
+  sourceStableId: string;
+  snapshot: Pick<Block, "type" | "content" | "collapsible" | "default_collapsed" | "collapsible_label">;
+  targetPageId: string;
+  targetSectionSlug: string;
+  targetPageSlug: string;
+}) {
+  const supabase = await createClient();
+
+  const { data: existing, error: existingError } = await supabase
+    .from("blocks")
+    .select("order_index")
+    .eq("page_id", params.targetPageId)
+    .is("parent_block_id", null)
+    .order("order_index", { ascending: false })
+    .limit(1);
+  if (existingError) throw existingError;
+  const nextOrder = (existing?.[0]?.order_index ?? -1) + 1;
+
+  const { error } = await supabase.from("blocks").insert({
+    id: randomUUID(),
+    stable_id: randomUUID(),
+    source_stable_id: params.sourceStableId,
+    page_id: params.targetPageId,
+    parent_block_id: null,
+    tab_key: null,
+    order_index: nextOrder,
+    type: params.snapshot.type,
+    content: params.snapshot.content,
+    collapsible: params.snapshot.collapsible,
+    default_collapsed: params.snapshot.default_collapsed,
+    collapsible_label: params.snapshot.collapsible_label,
+  });
+  if (error) throw error;
+
+  revalidatePath(`/admin/${params.targetSectionSlug}/${params.targetPageSlug}/edit`);
+  revalidatePath(`/${params.targetSectionSlug}/${params.targetPageSlug}`);
 }

@@ -1,4 +1,49 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Block, BlockDraft, BlockNode, ImageContent, PdfContent } from "@/lib/supabase/types";
+
+// Overlays each linked-copy row (source_stable_id set -- see
+// supabase/migrations/0014_linked_block_copies.sql) with the *live*
+// content of the block it points at, so an edit to the original shows up
+// everywhere it's been copied without the admin touching the copy itself.
+// A row whose source can't be found (not published yet, or since deleted)
+// keeps its own frozen snapshot instead of disappearing.
+//
+// Deliberately NOT used by the admin editor's own page load (see
+// app/admin/[sectionSlug]/[pageSlug]/edit/page.tsx) -- the editor needs the
+// raw, unresolved row (source_stable_id intact) to know a block is a link
+// at all and render it as a read-only, edit-at-the-source card instead of
+// the normal type-specific editor.
+export async function resolveLinkedBlocks(
+  supabase: SupabaseClient,
+  flatBlocks: Block[]
+): Promise<Block[]> {
+  const sourceIds = Array.from(
+    new Set(flatBlocks.map((b) => b.source_stable_id).filter((id): id is string => !!id))
+  );
+  if (sourceIds.length === 0) return flatBlocks;
+
+  const { data: sources, error } = await supabase
+    .from("blocks")
+    .select("stable_id, type, content, collapsible, default_collapsed, collapsible_label")
+    .in("stable_id", sourceIds);
+  if (error) throw error;
+
+  const bySourceId = new Map((sources ?? []).map((s) => [s.stable_id as string, s]));
+
+  return flatBlocks.map((block) => {
+    if (!block.source_stable_id) return block;
+    const source = bySourceId.get(block.source_stable_id);
+    if (!source) return block;
+    return {
+      ...block,
+      type: source.type,
+      content: source.content,
+      collapsible: source.collapsible,
+      default_collapsed: source.default_collapsed,
+      collapsible_label: source.collapsible_label,
+    };
+  });
+}
 
 // Turns the flat `blocks` table rows for a page into the nested tree the
 // renderer and editor actually want to work with: top-level blocks in

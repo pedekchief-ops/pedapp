@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { resolveLinkedBlocks } from "@/lib/blocks";
+import type { Block } from "@/lib/supabase/types";
 
 // Minimal endpoint backing the inline search-result preview (see
 // components/search/SearchOverlay.tsx): fetches just the one matched
@@ -25,5 +27,6 @@ export async function GET(
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  return NextResponse.json(block);
+  const [resolved] = await resolveLinkedBlocks(supabase, [block as Block]);
+  return NextResponse.json(resolved);
 }
