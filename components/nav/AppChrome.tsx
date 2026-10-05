@@ -9,6 +9,7 @@ import { signOut } from "@/lib/actions/auth";
 import { OfflinePrefetcher } from "@/components/OfflinePrefetcher";
 import { PushSubscribeToggle } from "@/components/PushSubscribeToggle";
 import { SearchOverlay } from "@/components/search/SearchOverlay";
+import { FeedbackButton } from "@/components/feedback/FeedbackButton";
 import { BackButton } from "@/components/BackButton";
 import type { Profile, Section } from "@/lib/supabase/types";
 
@@ -142,6 +143,7 @@ export function AppChrome({
       )}
 
       {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} sections={sections} />}
+      <FeedbackButton />
       <OfflinePrefetcher />
     </div>
   );

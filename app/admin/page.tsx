@@ -1,10 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
-import { getSections } from "@/lib/data";
+import { getFeedbackSubmissions, getSections } from "@/lib/data";
 import { SectionsManager } from "@/components/admin/SectionsManager";
+import { FeedbackInbox } from "@/components/admin/FeedbackInbox";
 
 export default async function AdminHomePage() {
   const supabase = await createClient();
-  const sections = await getSections(supabase);
+  const [sections, feedback] = await Promise.all([
+    getSections(supabase),
+    getFeedbackSubmissions(supabase),
+  ]);
 
   const { data: pageCounts } = await supabase.from("pages").select("section_id");
   const countBySection = new Map<string, number>();
@@ -14,6 +18,8 @@ export default async function AdminHomePage() {
 
   return (
     <div>
+      <FeedbackInbox submissions={feedback} />
+
       <h1 className="mb-1 text-lg font-semibold text-neutral-900 dark:text-neutral-50">
         קטגוריות
       </h1>

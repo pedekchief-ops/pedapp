@@ -3,6 +3,7 @@ import { buildBlockTree, resolveLinkedBlocks } from "@/lib/blocks";
 import type {
   AppSettings,
   Block,
+  FeedbackSubmission,
   Page,
   PageWithBlocks,
   Profile,
@@ -107,4 +108,25 @@ export async function getPageWithBlocks(
     : ((blocks as Block[]) ?? []);
 
   return { ...page, blocks: buildBlockTree(resolved) };
+}
+
+// Admin-only (RLS restricts select to is_admin(), see
+// supabase/migrations/0016_feedback.sql) -- feeds the "תיבת משובים" on
+// /admin. submitterName is a fallback for display when the free-text
+// `name` field was left blank, not a replacement for it.
+export async function getFeedbackSubmissions(
+  supabase: SupabaseClient
+): Promise<(FeedbackSubmission & { submitterName: string | null })[]> {
+  const { data, error } = await supabase
+    .from("feedback_submissions")
+    .select("*, profiles(full_name)")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  return ((data ?? []) as unknown as (FeedbackSubmission & {
+    profiles: { full_name: string | null } | null;
+  })[]).map(({ profiles, ...submission }) => ({
+    ...submission,
+    submitterName: profiles?.full_name ?? null,
+  }));
 }

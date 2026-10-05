@@ -301,6 +301,17 @@ export interface MedicationWithCategories extends Medication {
 // per added patient (the two free-form wards).
 export type HandoffWard = "near_side" | "seven" | "far_side" | "satellites" | "annex";
 
+// supabase/migrations/0016_feedback.sql -- name is optional (the
+// submitter's account id is still captured as created_by regardless, see
+// components/admin/FeedbackInbox.tsx's fallback display).
+export interface FeedbackSubmission {
+  id: string;
+  name: string | null;
+  message: string;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface HandoffPatient {
   id: string;
   ward: HandoffWard;
