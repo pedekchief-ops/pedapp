@@ -43,6 +43,21 @@ export async function generateViewport(): Promise<Viewport> {
     ],
     width: "device-width",
     initialScale: 1,
+    // The phone's own native pinch-zoom competes with pdf.js's own
+    // (sharp, vector-accurate) in-viewer zoom for the same gesture over a
+    // PDF block -- whichever wins is inconsistent per-device/browser, and
+    // when the native one wins it's a blurry raster scale-up besides. Set
+    // statically here (not toggled at runtime, e.g. only while a PDF is
+    // in full-screen -- see the removed effect this replaced in
+    // components/blocks/PdfBlock.tsx) because mobile Safari in particular
+    // doesn't reliably honor a viewport meta tag changed via JS after
+    // first paint, which was the actual source of the "works sometimes"
+    // flakiness. The trade-off: residents can no longer pinch-zoom plain
+    // text/images elsewhere in the app with their fingers -- their
+    // device's own system-level text-size/zoom accessibility setting
+    // still works independently of this.
+    maximumScale: 1,
+    userScalable: false,
   };
 }
 
