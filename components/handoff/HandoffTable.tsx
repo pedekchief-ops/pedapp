@@ -37,12 +37,14 @@ export function HandoffTable({
   onChanged,
   clipboard,
   onCopy,
+  onDirtyChange,
 }: {
   ward: HandoffWard;
   rows: HandoffPatient[];
   onChanged: () => Promise<void>;
   clipboard: PatientFields | null;
   onCopy: (fields: PatientFields) => void;
+  onDirtyChange: (rowId: string, dirty: boolean) => void;
 }) {
   const [pending, startTransition] = useTransition();
   const { confirm, dialog } = useConfirmDialog();
@@ -125,6 +127,7 @@ export function HandoffTable({
                 clipboard={clipboard}
                 onCopy={onCopy}
                 confirmPaste={confirmPaste}
+                onDirtyChange={onDirtyChange}
               />
             ))}
           </tbody>

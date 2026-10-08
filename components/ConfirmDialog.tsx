@@ -24,7 +24,16 @@ export function useConfirmDialog() {
 
   const confirm = useCallback((options: ConfirmOptions) => {
     return new Promise<boolean>((resolve) => {
-      setState({ options, resolve });
+      setState((prev) => {
+        // A still-pending confirm (its own dialog not yet answered) would
+        // otherwise be silently orphaned here -- its `resolve` lost the
+        // moment this one overwrites `state`, leaving whatever called it
+        // suspended forever instead of getting a false/true back.
+        // Resolving it false first means at most one call's action can
+        // ever proceed from an overlapping pair.
+        prev?.resolve(false);
+        return { options, resolve };
+      });
     });
   }, []);
 

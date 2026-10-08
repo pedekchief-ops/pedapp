@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Save, Trash2, Copy, ClipboardPaste } from "lucide-react";
 import { saveHandoffPatientRow, clearOrDeleteHandoffPatientRow } from "@/lib/actions/handoff";
 import { useToast } from "@/components/Toast";
@@ -75,6 +75,7 @@ export function HandoffRow({
   clipboard,
   onCopy,
   confirmPaste,
+  onDirtyChange,
 }: {
   row: HandoffPatient;
   onChanged: () => Promise<void>;
@@ -82,10 +83,24 @@ export function HandoffRow({
   clipboard: PatientFields | null;
   onCopy: (fields: PatientFields) => void;
   confirmPaste: () => Promise<boolean>;
+  onDirtyChange: (rowId: string, dirty: boolean) => void;
 }) {
   const { showToast } = useToast();
   const [draft, setDraft] = useState<Draft>(() => toDraft(row));
   const [touched, setTouched] = useState(false);
+
+  // Reports this row's unsaved-edit status up to HandoffBoard, which uses
+  // it for the beforeunload warning -- a genuine case of syncing local
+  // state to an external system (the parent's dirty-row bookkeeping), so
+  // an effect is the right tool here, unlike the render-time pattern just
+  // below for syncing the other direction.
+  useEffect(() => {
+    onDirtyChange(row.id, touched);
+    // On unmount (the row was deleted, not just hidden -- ward tables
+    // stay mounted across a tab switch now, see HandoffBoard.tsx), make
+    // sure it doesn't linger in the parent's dirty set forever.
+    return () => onDirtyChange(row.id, false);
+  }, [row.id, touched, onDirtyChange]);
   // "Adjusting state when a prop changes" via the render-time pattern
   // (react.dev/learn/you-might-not-need-an-effect), not an effect: an
   // effect here would commit the stale draft for one extra frame before

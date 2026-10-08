@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { HandoffTable } from "./HandoffTable";
 import type { PatientFields } from "./HandoffRow";
 import type { HandoffPatient, HandoffWard } from "@/lib/supabase/types";
@@ -14,10 +14,20 @@ const WARDS: { key: HandoffWard; label: string }[] = [
   { key: "annex", label: "שלוחה" },
 ];
 
-// Only the active ward's table is ever mounted (same pattern as
-// MedicationsAdmin's tabs) -- besides the usual reason (no point rendering
-// four tables nobody's looking at), it's also what makes "הדפסה" print
-// just the one table on screen instead of all five.
+// Every ward's table stays mounted at all times -- only the active one is
+// shown (the rest get Tailwind's `hidden`, which also keeps them out of
+// "הדפסה" since it's unconditional, not a screen-only hide). This used to
+// conditionally *mount* just the active ward instead, which seemed
+// harmless (and is what MedicationsAdmin's tabs still do, where nothing
+// is ever mid-edit between keystroke and an explicit save) -- but here,
+// a row's typed/pasted-but-not-yet-"שמור מטופל"-ed edits live only in
+// that HandoffRow's local state. Switching tabs away unmounted the whole
+// inactive ward's component tree, silently discarding any such edits with
+// no warning -- which is exactly what happened to four satellite patients
+// pasted in but never saved before the tab (or the whole page) was left.
+// Keeping every ward mounted means there's no unmount to lose that state
+// to; the beforeunload guard below covers the one remaining way to lose
+// it (closing/navigating away from the page entirely).
 export function HandoffBoard({
   patients,
   onChanged,
@@ -27,12 +37,34 @@ export function HandoffBoard({
 }) {
   const [ward, setWard] = useState<HandoffWard>("near_side");
   // Lives here, not in HandoffTable, specifically so it survives a ward
-  // tab switch -- only the active ward's HandoffTable is ever mounted
-  // (see the comment below), so a clipboard owned by it would be lost the
-  // moment the admin switched tabs to paste somewhere else, e.g. copying
-  // a patient out of a fixed room into a newly added satellite bed.
+  // tab switch -- copying a patient out of a fixed room into a newly
+  // added satellite/annex bed means the clipboard needs to outlive
+  // whichever table it was copied from.
   const [clipboard, setClipboard] = useState<PatientFields | null>(null);
-  const rows = patients.filter((p) => p.ward === ward);
+  const [dirtyRowIds, setDirtyRowIds] = useState<Set<string>>(new Set());
+
+  const onDirtyChange = useCallback((rowId: string, dirty: boolean) => {
+    setDirtyRowIds((prev) => {
+      const isDirty = prev.has(rowId);
+      if (dirty === isDirty) return prev;
+      const next = new Set(prev);
+      if (dirty) next.add(rowId);
+      else next.delete(rowId);
+      return next;
+    });
+  }, []);
+
+  // Same pattern as components/editor/PageEditor.tsx's unpublished-edits
+  // warning -- the one way to lose unsaved work that keeping every ward
+  // mounted (above) doesn't already cover.
+  useEffect(() => {
+    if (dirtyRowIds.size === 0) return;
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [dirtyRowIds]);
 
   return (
     <div>
@@ -53,13 +85,18 @@ export function HandoffBoard({
         ))}
       </div>
 
-      <HandoffTable
-        ward={ward}
-        rows={rows}
-        onChanged={onChanged}
-        clipboard={clipboard}
-        onCopy={setClipboard}
-      />
+      {WARDS.map((w) => (
+        <div key={w.key} className={w.key === ward ? "" : "hidden"}>
+          <HandoffTable
+            ward={w.key}
+            rows={patients.filter((p) => p.ward === w.key)}
+            onChanged={onChanged}
+            clipboard={clipboard}
+            onCopy={setClipboard}
+            onDirtyChange={onDirtyChange}
+          />
+        </div>
+      ))}
     </div>
   );
 }
