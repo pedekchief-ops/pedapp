@@ -4,7 +4,7 @@ import { Plus, Printer, RefreshCw } from "lucide-react";
 import { useTransition } from "react";
 import { addHandoffPatientRow } from "@/lib/actions/handoff";
 import { useConfirmDialog } from "@/components/ConfirmDialog";
-import { HandoffRow } from "./HandoffRow";
+import { HandoffRow, type PatientFields } from "./HandoffRow";
 import type { HandoffPatient, HandoffWard } from "@/lib/supabase/types";
 
 const COLUMNS = [
@@ -35,10 +35,14 @@ export function HandoffTable({
   ward,
   rows,
   onChanged,
+  clipboard,
+  onCopy,
 }: {
   ward: HandoffWard;
   rows: HandoffPatient[];
   onChanged: () => Promise<void>;
+  clipboard: PatientFields | null;
+  onCopy: (fields: PatientFields) => void;
 }) {
   const [pending, startTransition] = useTransition();
   const { confirm, dialog } = useConfirmDialog();
@@ -51,6 +55,15 @@ export function HandoffTable({
         ? "כל פרטי המטופל יימחקו. המיקום (המיטה) יישאר במקום."
         : "השורה תוסר לגמרי מהטבלה. לא ניתן לשחזר פעולה זו.",
       confirmLabel: row.is_fixed ? "ריקון" : "מחיקה",
+      danger: true,
+    });
+  }
+
+  function confirmPaste() {
+    return confirm({
+      title: "להדביק על תוכן קיים?",
+      description: "השורה הזו כבר מכילה נתונים -- הדבקה תחליף אותם. הנתונים הקודמים לא יישמרו.",
+      confirmLabel: "הדבקה",
       danger: true,
     });
   }
@@ -104,7 +117,15 @@ export function HandoffTable({
           </thead>
           <tbody>
             {rows.map((row) => (
-              <HandoffRow key={row.id} row={row} onChanged={onChanged} confirmClear={confirmClear} />
+              <HandoffRow
+                key={row.id}
+                row={row}
+                onChanged={onChanged}
+                confirmClear={confirmClear}
+                clipboard={clipboard}
+                onCopy={onCopy}
+                confirmPaste={confirmPaste}
+              />
             ))}
           </tbody>
         </table>

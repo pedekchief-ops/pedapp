@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Save, Trash2 } from "lucide-react";
+import { Save, Trash2, Copy, ClipboardPaste } from "lucide-react";
 import { saveHandoffPatientRow, clearOrDeleteHandoffPatientRow } from "@/lib/actions/handoff";
+import { useToast } from "@/components/Toast";
 import type { HandoffPatient } from "@/lib/supabase/types";
 
 type Draft = Pick<
@@ -17,6 +18,25 @@ type Draft = Pick<
   | "evening_exam"
   | "morning_labs"
 >;
+
+// Copy/paste deliberately excludes location: a bed's room number belongs
+// to the bed, not the patient being moved into or out of it -- pasting a
+// copied patient into another row should never overwrite where that row
+// already says it is.
+export type PatientFields = Omit<Draft, "location">;
+
+function hasAnyContent(fields: PatientFields): boolean {
+  return Boolean(
+    fields.patient_name ||
+      fields.age ||
+      fields.background ||
+      fields.active_issue ||
+      fields.medications ||
+      fields.evening_tasks ||
+      fields.evening_exam ||
+      fields.morning_labs
+  );
+}
 
 function toDraft(row: HandoffPatient): Draft {
   return {
@@ -52,11 +72,18 @@ export function HandoffRow({
   row,
   onChanged,
   confirmClear,
+  clipboard,
+  onCopy,
+  confirmPaste,
 }: {
   row: HandoffPatient;
   onChanged: () => Promise<void>;
   confirmClear: (row: HandoffPatient) => Promise<boolean>;
+  clipboard: PatientFields | null;
+  onCopy: (fields: PatientFields) => void;
+  confirmPaste: () => Promise<boolean>;
 }) {
+  const { showToast } = useToast();
   const [draft, setDraft] = useState<Draft>(() => toDraft(row));
   const [touched, setTouched] = useState(false);
   // "Adjusting state when a prop changes" via the render-time pattern
@@ -98,6 +125,30 @@ export function HandoffRow({
       await onChanged();
       setTouched(false);
     });
+  }
+
+  function handleCopy() {
+    onCopy({
+      patient_name: draft.patient_name,
+      age: draft.age,
+      background: draft.background,
+      active_issue: draft.active_issue,
+      medications: draft.medications,
+      evening_tasks: draft.evening_tasks,
+      evening_exam: draft.evening_exam,
+      morning_labs: draft.morning_labs,
+    });
+    showToast("מטופל הועתק");
+  }
+
+  async function handlePaste() {
+    if (!clipboard) return;
+    if (hasAnyContent(draft)) {
+      const ok = await confirmPaste();
+      if (!ok) return;
+    }
+    setDraft((d) => ({ ...d, ...clipboard }));
+    setTouched(true);
   }
 
   return (
@@ -186,6 +237,24 @@ export function HandoffRow({
           >
             <Trash2 size={12} />
             מחק שורה
+          </button>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={handleCopy}
+            className="flex items-center justify-center gap-1 rounded-md border border-neutral-300 px-1.5 py-1 text-[11px] text-neutral-500 hover:bg-neutral-100 disabled:opacity-40 dark:border-neutral-700 dark:hover:bg-neutral-800"
+          >
+            <Copy size={12} />
+            העתק מטופל
+          </button>
+          <button
+            type="button"
+            disabled={!clipboard || pending}
+            onClick={handlePaste}
+            className="flex items-center justify-center gap-1 rounded-md border border-neutral-300 px-1.5 py-1 text-[11px] text-neutral-500 hover:bg-neutral-100 disabled:opacity-40 dark:border-neutral-700 dark:hover:bg-neutral-800"
+          >
+            <ClipboardPaste size={12} />
+            הדבק מטופל
           </button>
         </div>
       </td>

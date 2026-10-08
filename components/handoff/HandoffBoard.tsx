@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { HandoffTable } from "./HandoffTable";
+import type { PatientFields } from "./HandoffRow";
 import type { HandoffPatient, HandoffWard } from "@/lib/supabase/types";
 
 // Tab order exactly as given: צד קרוב, צד רחוק, שביעיה, סטליטים, שלוחה.
@@ -25,6 +26,12 @@ export function HandoffBoard({
   onChanged: () => Promise<void>;
 }) {
   const [ward, setWard] = useState<HandoffWard>("near_side");
+  // Lives here, not in HandoffTable, specifically so it survives a ward
+  // tab switch -- only the active ward's HandoffTable is ever mounted
+  // (see the comment below), so a clipboard owned by it would be lost the
+  // moment the admin switched tabs to paste somewhere else, e.g. copying
+  // a patient out of a fixed room into a newly added satellite bed.
+  const [clipboard, setClipboard] = useState<PatientFields | null>(null);
   const rows = patients.filter((p) => p.ward === ward);
 
   return (
@@ -46,7 +53,13 @@ export function HandoffBoard({
         ))}
       </div>
 
-      <HandoffTable ward={ward} rows={rows} onChanged={onChanged} />
+      <HandoffTable
+        ward={ward}
+        rows={rows}
+        onChanged={onChanged}
+        clipboard={clipboard}
+        onCopy={setClipboard}
+      />
     </div>
   );
 }
