@@ -229,33 +229,42 @@ export function HandoffRow({
             <Save size={12} />
             שמור מטופל
           </button>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={handleClearOrDelete}
-            className="flex items-center justify-center gap-1 rounded-md border border-neutral-300 px-1.5 py-1 text-[11px] text-neutral-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:border-neutral-700 dark:hover:bg-red-950/40"
-          >
-            <Trash2 size={12} />
-            מחק שורה
-          </button>
-          <button
-            type="button"
-            disabled={pending}
-            onClick={handleCopy}
-            className="flex items-center justify-center gap-1 rounded-md border border-neutral-300 px-1.5 py-1 text-[11px] text-neutral-500 hover:bg-neutral-100 disabled:opacity-40 dark:border-neutral-700 dark:hover:bg-neutral-800"
-          >
-            <Copy size={12} />
-            העתק מטופל
-          </button>
-          <button
-            type="button"
-            disabled={!clipboard || pending}
-            onClick={handlePaste}
-            className="flex items-center justify-center gap-1 rounded-md border border-neutral-300 px-1.5 py-1 text-[11px] text-neutral-500 hover:bg-neutral-100 disabled:opacity-40 dark:border-neutral-700 dark:hover:bg-neutral-800"
-          >
-            <ClipboardPaste size={12} />
-            הדבק מטופל
-          </button>
+          {/* Icon-only, not stacked full-width labels like שמור מטופל
+              above -- three text buttons side by side would never fit
+              this column's width. title gives the label back as a
+              tooltip/accessible name. */}
+          <div className="flex gap-1">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={handleClearOrDelete}
+              title="מחק שורה"
+              aria-label="מחק שורה"
+              className="flex flex-1 items-center justify-center rounded-md border border-neutral-300 py-1 text-neutral-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:border-neutral-700 dark:hover:bg-red-950/40"
+            >
+              <Trash2 size={13} />
+            </button>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={handleCopy}
+              title="העתק מטופל"
+              aria-label="העתק מטופל"
+              className="flex flex-1 items-center justify-center rounded-md border border-neutral-300 py-1 text-neutral-500 hover:bg-neutral-100 disabled:opacity-40 dark:border-neutral-700 dark:hover:bg-neutral-800"
+            >
+              <Copy size={13} />
+            </button>
+            <button
+              type="button"
+              disabled={!clipboard || pending}
+              onClick={handlePaste}
+              title="הדבק מטופל"
+              aria-label="הדבק מטופל"
+              className="flex flex-1 items-center justify-center rounded-md border border-neutral-300 py-1 text-neutral-500 hover:bg-neutral-100 disabled:opacity-40 dark:border-neutral-700 dark:hover:bg-neutral-800"
+            >
+              <ClipboardPaste size={13} />
+            </button>
+          </div>
         </div>
       </td>
     </tr>
