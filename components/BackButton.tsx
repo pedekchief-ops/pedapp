@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
+import { useUnsavedChangesGuard } from "@/components/nav/UnsavedChangesGuard";
 
 // Goes to the previous screen in browser history, rather than a fixed
 // "home"/"admin root" link -- so a resident three levels into content, or
@@ -9,12 +10,23 @@ import { ArrowRight } from "lucide-react";
 // "back" instead of "start over from the top". If there's no in-app
 // history (e.g. this tab's very first load), the browser simply falls
 // through to wherever it would have gone anyway.
+//
+// confirmNavigation is a no-op (always resolves true) unless this renders
+// inside AppChrome's UnsavedChangesProvider -- app/admin/layout.tsx uses
+// this same component from its own, separate header with no such
+// provider, and should keep navigating normally there.
 export function BackButton({ className }: { className?: string }) {
   const router = useRouter();
+  const { confirmNavigation } = useUnsavedChangesGuard();
+
+  async function handleClick() {
+    if (await confirmNavigation()) router.back();
+  }
+
   return (
     <button
       type="button"
-      onClick={() => router.back()}
+      onClick={handleClick}
       aria-label="חזרה"
       className={
         className ??

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { useSearchPreview } from "./useSearchPreview";
 import { SearchResultsList } from "./SearchResultsList";
+import { useUnsavedChangesGuard } from "@/components/nav/UnsavedChangesGuard";
 import type { Section } from "@/lib/supabase/types";
 import type { SearchHit } from "@/lib/search";
 
@@ -30,6 +31,7 @@ export function SearchOverlay({
 }) {
   const params = useParams<{ sectionSlug?: string; pageSlug?: string }>();
   const router = useRouter();
+  const { confirmNavigation } = useUnsavedChangesGuard();
   const currentSectionSlug = typeof params.sectionSlug === "string" ? params.sectionSlug : undefined;
   const currentPageSlug = typeof params.pageSlug === "string" ? params.pageSlug : undefined;
   const currentSection = sections.find((s) => s.slug === currentSectionSlug);
@@ -76,7 +78,8 @@ export function SearchOverlay({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trimmedQuery, scope, sectionFilter, currentSectionSlug, currentPageSlug]);
 
-  function goTo(hit: SearchHit) {
+  async function goTo(hit: SearchHit) {
+    if (!(await confirmNavigation())) return;
     let url: string;
     if (hit.medicationId) {
       url = `/${hit.sectionSlug}?open=${hit.medicationId}`;

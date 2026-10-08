@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { HandoffTable } from "./HandoffTable";
+import { useUnsavedChangesGuard } from "@/components/nav/UnsavedChangesGuard";
 import type { PatientFields } from "./HandoffRow";
 import type { HandoffPatient, HandoffWard } from "@/lib/supabase/types";
 
@@ -42,6 +43,7 @@ export function HandoffBoard({
   // whichever table it was copied from.
   const [clipboard, setClipboard] = useState<PatientFields | null>(null);
   const [dirtyRowIds, setDirtyRowIds] = useState<Set<string>>(new Set());
+  const { setDirty } = useUnsavedChangesGuard();
 
   const onDirtyChange = useCallback((rowId: string, dirty: boolean) => {
     setDirtyRowIds((prev) => {
@@ -56,15 +58,28 @@ export function HandoffBoard({
 
   // Same pattern as components/editor/PageEditor.tsx's unpublished-edits
   // warning -- the one way to lose unsaved work that keeping every ward
-  // mounted (above) doesn't already cover.
+  // mounted (above) doesn't already cover is leaving the page/tab
+  // entirely. In-app navigation (the header's back button, drawer links,
+  // a search result click) goes through setDirty/confirmNavigation
+  // instead -- see components/nav/UnsavedChangesGuard.tsx.
   useEffect(() => {
+    setDirty(dirtyRowIds.size > 0);
     if (dirtyRowIds.size === 0) return;
     function handleBeforeUnload(e: BeforeUnloadEvent) {
       e.preventDefault();
     }
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [dirtyRowIds]);
+  }, [dirtyRowIds, setDirty]);
+
+  // AppChrome (and so UnsavedChangesProvider) lives in the layout, not
+  // this page -- it doesn't remount on navigation. Without this, leaving
+  // the handoff board dirty (confirming "יציאה בכל זאת") would strand the
+  // guard permanently on, wrongly blocking navigation from whatever page
+  // comes next.
+  useEffect(() => {
+    return () => setDirty(false);
+  }, [setDirty]);
 
   return (
     <div>

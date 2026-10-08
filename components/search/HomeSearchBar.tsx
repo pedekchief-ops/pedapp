@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { useSearchPreview } from "./useSearchPreview";
 import { SearchResultsList } from "./SearchResultsList";
+import { useUnsavedChangesGuard } from "@/components/nav/UnsavedChangesGuard";
 import type { SearchHit } from "@/lib/search";
 
 // A prominent, always-visible search bar on the home page, above the
@@ -17,6 +18,7 @@ import type { SearchHit } from "@/lib/search";
 // make sense of.
 export function HomeSearchBar() {
   const router = useRouter();
+  const { confirmNavigation } = useUnsavedChangesGuard();
   const containerRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -63,7 +65,8 @@ export function HomeSearchBar() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  function goTo(hit: SearchHit) {
+  async function goTo(hit: SearchHit) {
+    if (!(await confirmNavigation())) return;
     let url: string;
     if (hit.medicationId) {
       url = `/${hit.sectionSlug}?open=${hit.medicationId}`;

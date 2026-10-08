@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { Menu, X, Moon, Sun, LogOut, ShieldCheck, Search, Home } from "lucide-react";
 import { signOut } from "@/lib/actions/auth";
@@ -11,6 +11,7 @@ import { PushSubscribeToggle } from "@/components/PushSubscribeToggle";
 import { SearchOverlay } from "@/components/search/SearchOverlay";
 import { FeedbackButton } from "@/components/feedback/FeedbackButton";
 import { BackButton } from "@/components/BackButton";
+import { UnsavedChangesProvider, useUnsavedChangesGuard } from "@/components/nav/UnsavedChangesGuard";
 import type { Profile, Section } from "@/lib/supabase/types";
 
 // The persistent chrome around every resident-facing page: a top bar with a
@@ -38,6 +39,7 @@ export function AppChrome({
   const isHome = pathname === "/";
 
   return (
+    <UnsavedChangesProvider>
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-40 flex items-center gap-1 border-b border-neutral-200 bg-white/90 px-2 py-3 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/90 print:hidden">
         {!isHome && <BackButton />}
@@ -49,15 +51,7 @@ export function AppChrome({
         >
           <Menu size={22} />
         </button>
-        <Link href="/" className="flex flex-1 items-center gap-2 px-1 text-base font-semibold text-neutral-900 dark:text-neutral-50">
-          {logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt="" className="h-7 w-7 rounded object-contain" />
-          ) : (
-            <span className="h-2 w-2 rounded-full bg-primary" aria-hidden />
-          )}
-          מדריך התמחות בילדים
-        </Link>
+        <HeaderTitleLink logoUrl={logoUrl} />
         <button
           type="button"
           aria-label="חיפוש"
@@ -146,6 +140,36 @@ export function AppChrome({
       <FeedbackButton />
       <OfflinePrefetcher />
     </div>
+    </UnsavedChangesProvider>
+  );
+}
+
+// Separate component (not inline JSX) purely so it can call
+// useUnsavedChangesGuard() -- confirms before leaving the current page
+// via the logo/title, same as DrawerLink below.
+function HeaderTitleLink({ logoUrl }: { logoUrl: string | null }) {
+  const router = useRouter();
+  const { confirmNavigation } = useUnsavedChangesGuard();
+
+  async function handleClick(e: React.MouseEvent) {
+    e.preventDefault();
+    if (await confirmNavigation()) router.push("/");
+  }
+
+  return (
+    <Link
+      href="/"
+      onClick={handleClick}
+      className="flex flex-1 items-center gap-2 px-1 text-base font-semibold text-neutral-900 dark:text-neutral-50"
+    >
+      {logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logoUrl} alt="" className="h-7 w-7 rounded object-contain" />
+      ) : (
+        <span className="h-2 w-2 rounded-full bg-primary" aria-hidden />
+      )}
+      מדריך התמחות בילדים
+    </Link>
   );
 }
 
@@ -160,10 +184,20 @@ function DrawerLink({
   label: string;
   onNavigate: () => void;
 }) {
+  const router = useRouter();
+  const { confirmNavigation } = useUnsavedChangesGuard();
+
+  async function handleClick(e: React.MouseEvent) {
+    e.preventDefault();
+    if (!(await confirmNavigation())) return;
+    onNavigate();
+    router.push(href);
+  }
+
   return (
     <Link
       href={href}
-      onClick={onNavigate}
+      onClick={handleClick}
       className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-800"
     >
       {icon}
